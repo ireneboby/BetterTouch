@@ -1,3 +1,12 @@
+"""
+TODO
+-> use "curses" to make the cursor invisible
+-> should also work for holds & double-tap
+-> possible to add functionality for right-click and scroll
+-> no current implementation for zoom
+"""
+
+
 import pyautogui 
 import time
 from typing import Optional
