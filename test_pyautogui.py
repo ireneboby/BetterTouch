@@ -43,18 +43,18 @@ if __name__ == "__main__":
 
     # simulate single-finger tap/click
     screen_control.inject_touch(None)
-    start_time = time.time()
+    #start_time = time.time()
     screen_control.inject_touch((100, 100))
     screen_control.inject_touch(None)
-    end_time = time.time()
-    print("Click Time:", end_time - start_time)
-    time.sleep(2)
+    #end_time = time.time()
+    #print("Click Time:", end_time - start_time)
+    #time.sleep(2)
 
     # simulate single-finger drag
-    screen_control.inject_touch(None)
-    for i in range(35):
-        screen_control.inject_touch((100, 100 + i))
-        time.sleep(0.1)
-    screen_control.inject_touch(None)
+    # screen_control.inject_touch(None)
+    # for i in range(35):
+    #     screen_control.inject_touch((100, 100 + i))
+    #     time.sleep(0.1)
+    # screen_control.inject_touch(None)
 
 
