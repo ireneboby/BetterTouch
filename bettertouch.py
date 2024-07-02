@@ -6,30 +6,39 @@ import time
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
 
-VOLTAGE_THRESH = 100
-
 COM_PORT = 'COM7'
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
+N = 2
 
-def data_parsing(ser):
+def data_parsing(ser) -> Optional[list[bool]]:
+    bit_array = []
+
     data = ser.readline().decode().strip()
+
     if data:
-        if int(data) >= VOLTAGE_THRESH:
-            return 1
-        else:
-            return 0
-    
+        data = int(data)
+        for _ in range(N):
+            bit_array.append(data % 2)
+            data = data // 2
+        return bit_array
+
     return None
 
-def coordinate_determination(bit_array):
-
-    if bit_array is None:
-        return None
-    elif bit_array == 0:
-        return 0
+def coordinate_determination(bit_array: list[bool]) -> Optional[int]:
     
-    return round(bit_array/1*1)
+    avg_index = 0
+    index_count = 0
+
+    for i, bit in enumerate(bit_array):
+        if bit:
+            index_count += 1
+            avg_index += i
+    
+    if index_count == 0:
+        return None
+    
+    return round(avg_index/index_count*700 + 400)
 
 class ScreenControl:
 
@@ -55,25 +64,21 @@ class ScreenControl:
                 pyautogui.mouseDown(x, y, _pause=False)
 
 def main():
-    average_sum = 0
-    average_num = 0
 
     screen_control = ScreenControl()
     ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
+    print("Started")
     while True:
-        start = time.time()
         bit_array = data_parsing(ser)
+        if bit_array is None:
+            continue
+
         coord = coordinate_determination(bit_array)
-        #print(bit_array)
         
         if coord is None:
-            continue
-        elif coord == 0:
             screen_control.inject_touch()
         else:
-            screen_control.inject_touch([None, None])
-        end = time.time()
-        print(end - start)
+            screen_control.inject_touch([coord, 400])
 
 if __name__ == "__main__":
     main()
