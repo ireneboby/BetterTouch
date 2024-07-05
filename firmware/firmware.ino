@@ -1,14 +1,15 @@
 #include <Streaming.h>
 
-uint16_t THRESHOLD = 100;
-bool digital0;
-bool digital1;
-uint16_t val; 
+const uint16_t THRESHOLD = 100;
+const int S0 = 8; // Connected to pin 8
+const int S1 = 9; // Connected to pin 9
 
 void setup() {
   Serial.begin(9600);
-  pinMode(A0,INPUT);
-  pinMode(A1,INPUT);
+
+  pinMode(A0, INPUT);
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
 }
 
 bool analog_to_digital(uint16_t input) {
@@ -17,12 +18,21 @@ bool analog_to_digital(uint16_t input) {
 
 void loop() {
 
-  // Serial.println(analogRead(A0));
+  static int counter = 0;
+  static uint16_t bit_array = 0; 
 
-  digital0 = analog_to_digital(analogRead(A0));
-  digital1 = analog_to_digital(analogRead(A1));
-  val = (digital0 << 1) | digital1;
+  if (counter == 0) {
+    Serial << bit_array << endl;
+    bit_array = 0;
+  }
 
-  Serial << val << endl;
+  // Calculate the select line states based on the counter
+  digitalWrite(S0, counter & 1 ? HIGH : LOW);
+  digitalWrite(S1, counter & 2 ? HIGH : LOW);
+
+  bool bit = analog_to_digital(analogRead(A0));
+  bit_array = (bit_array << 1) | bit;
+  
+  counter = (counter + 1) % 4
 
 }

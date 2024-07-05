@@ -44,13 +44,13 @@ class ScreenControl:
 
         # get the vertical coordinates
         y_bit_array = []
-        # for _ in range(N):
-        #     y_bit_array.append(data % 2)
-        #     data = data // 2
+        for _ in range(N):
+            y_bit_array.append(data % 2)
+            data = data // 2
 
-        # # check validity of coordinates
-        # if any(x_bit_array) != any(y_bit_array):
-        #     return None
+        # check validity of coordinates
+        if any(x_bit_array) != any(y_bit_array):
+            return None
         
         return x_bit_array, y_bit_array
     
@@ -67,16 +67,16 @@ class ScreenControl:
                 x_index += i
         if x_index_count == 0:
             return None
-        x_coord = round(x_index/x_index_count*(self.x_pixels - 500) + 200)
+        x_coord = round(x_index/x_index_count*(self.x_pixels - 500) + 200) # FIXME
 
-        y_coord = None
-        # y_index = 0
-        # y_index_count = 0
-        # for i, bit in enumerate(y_bit_array):
-        #     if bit:
-        #         y_index_count += 1
-        #         y_index += i
-        # y_coord = round(y_index/y_index_count*self.y_pixels)
+        # y_coord = None
+        y_index = 0
+        y_index_count = 0
+        for i, bit in enumerate(y_bit_array):
+            if bit:
+                y_index_count += 1
+                y_index += i
+        y_coord = round(y_index/y_index_count*(self.y_pixels - 500) + 200) # FIXME
 
         return x_coord, y_coord
     
