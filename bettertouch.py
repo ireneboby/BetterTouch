@@ -1,7 +1,6 @@
 import serial
 import pyautogui 
 from typing import Optional
-import time
 
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
@@ -11,43 +10,76 @@ BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 N = 2
 
-def data_parsing(ser) -> Optional[list[bool]]:
-    bit_array = []
-
-    data = ser.readline().decode().strip()
-
-    if data:
-        data = int(data)
-        for _ in range(N):
-            bit_array.append(data % 2)
-            data = data // 2
-        return bit_array
-
-    return None
-
-def coordinate_determination(bit_array: list[bool]) -> Optional[int]:
-    
-    avg_index = 0
-    index_count = 0
-
-    for i, bit in enumerate(bit_array):
-        if bit:
-            index_count += 1
-            avg_index += i
-    
-    if index_count == 0:
-        return None
-    
-    return round(avg_index/index_count*700 + 400)
-
 class ScreenControl:
 
     # state that indicates whether the screen is currently being touched
     touching: bool
 
+    # serial communication port
+    port: serial.Serial
+
+    # screen resolution for the x (width) dimension 
+    x_pixels: int
+
+    # screen resolution for the y (height) dimension
+    y_pixels: int
+
     def __init__(self) -> None:
         self.touching = False
+        self.port = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
+        self.x_pixels, self.y_pixels = pyautogui.size()
 
+    def data_parsing(self) -> Optional[tuple[list[bool], list[bool]]]:
+        data = self.port.readline().decode().strip()
+        if not data:
+            return None
+        
+        data = int(data)
+
+        # get the horizontal coordinates
+        x_bit_array = []
+        for _ in range(N):
+            x_bit_array.append(data % 2)
+            data = data // 2
+
+        # get the vertical coordinates
+        y_bit_array = []
+        # for _ in range(N):
+        #     y_bit_array.append(data % 2)
+        #     data = data // 2
+
+        # # check validity of coordinates
+        # if any(x_bit_array) != any(y_bit_array):
+        #     return None
+        
+        return x_bit_array, y_bit_array
+    
+    
+    def coordinate_determination(self, bit_array: tuple[list[bool], list[bool]]) -> Optional[tuple[int, int]]:
+
+        x_bit_array, y_bit_array = bit_array
+
+        x_index = 0
+        x_index_count = 0
+        for i, bit in enumerate(x_bit_array):
+            if bit:
+                x_index_count += 1
+                x_index += i
+        if x_index_count == 0:
+            return None
+        x_coord = round(x_index/x_index_count*(self.x_pixels - 500) + 200)
+
+        y_coord = None
+        # y_index = 0
+        # y_index_count = 0
+        # for i, bit in enumerate(y_bit_array):
+        #     if bit:
+        #         y_index_count += 1
+        #         y_index += i
+        # y_coord = round(y_index/y_index_count*self.y_pixels)
+
+        return x_coord, y_coord
+    
     def inject_touch(self, position: Optional[tuple[int, int]] = None):
 
         if not position:
@@ -66,19 +98,22 @@ class ScreenControl:
 def main():
 
     screen_control = ScreenControl()
-    ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
+    
     print("Started")
+
     while True:
-        bit_array = data_parsing(ser)
+
+        # convert data from firmware to bit arrays
+        bit_array = screen_control.data_parsing()
         if bit_array is None:
             continue
 
-        coord = coordinate_determination(bit_array)
-        
+        # convert bit arrays into coordinates
+        coord = screen_control.coordinate_determination(bit_array)
         if coord is None:
             screen_control.inject_touch()
         else:
-            screen_control.inject_touch([coord, 400])
+            screen_control.inject_touch([coord[0], coord[1]])
 
 if __name__ == "__main__":
     main()
