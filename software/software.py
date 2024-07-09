@@ -8,7 +8,7 @@ pyautogui.FAILSAFE = True
 COM_PORT = 'COM7'
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
-N = 2
+N = 1
 
 class ScreenControl:
 
@@ -44,13 +44,13 @@ class ScreenControl:
 
         # get the vertical coordinates
         y_bit_array = []
-        # for _ in range(N):
-        #     y_bit_array.append(data % 2)
-        #     data = data // 2
+        for _ in range(N):
+            y_bit_array.append(data % 2)
+            data = data // 2
 
         # check validity of coordinates
-        # if any(x_bit_array) != any(y_bit_array):
-        #     return None
+        if any(x_bit_array) != any(y_bit_array):
+            return None
         
         return x_bit_array, y_bit_array
     
@@ -70,13 +70,13 @@ class ScreenControl:
         x_coord = round(x_index/x_index_count*(self.x_pixels - 500) + 200) # FIXME
 
         y_coord = None
-        # y_index = 0
-        # y_index_count = 0
-        # for i, bit in enumerate(y_bit_array):
-        #     if bit:
-        #         y_index_count += 1
-        #         y_index += i
-        # y_coord = round(y_index/y_index_count*(self.y_pixels - 500) + 200) # FIXME
+        y_index = 0
+        y_index_count = 0
+        for i, bit in enumerate(y_bit_array):
+            if bit:
+                y_index_count += 1
+                y_index += i
+        y_coord = round(y_index/y_index_count*(self.y_pixels - 500) + 350) # FIXME
 
         return x_coord, y_coord
     
@@ -110,6 +110,7 @@ def main():
 
         # convert bit arrays into coordinates
         coord = screen_control.coordinate_determination(bit_array)
+        print(coord)
         if coord is None:
             screen_control.inject_touch()
         else:
