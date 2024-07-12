@@ -1,46 +1,68 @@
 #include <Streaming.h>
 
-const uint16_t THRESHOLD = 25;
-const uint16_t MAX_COUNTER = 4;
+/////////////////////
+// Pin Definitions //
+/////////////////////
+const int selectPins[2] = {2, 3}; // S0~2, S1~3, S2~4
+const int zOutput = 5; // Connect common (Z) to 5 (PWM-capable)
 
-// set select pins
-const uint16_t S0 = 8;
-const uint16_t S1 = 7;
-const uint16_t Z_OUTPUT = 6;
+const int LED_ON_TIME = 500; // Each LED is on 0.5s
+const int DELAY_TIME = ((float)LED_ON_TIME/512.0)*1000;
+
+const int THRESHOLD = 10;
 
 bool analog_to_digital(uint16_t input) {
   return input < THRESHOLD;
 }
 
-void setup() {
+void setup() 
+{
   Serial.begin(9600);
 
-  pinMode(A0, INPUT); // TODO: change to digital 
-  pinMode(S0, OUTPUT);
-  pinMode(S1, OUTPUT);
-  pinMode(Z_OUTPUT, OUTPUT);
+  // Set up the select pins, as outputs
+  for (int i=0; i<2; i++)
+  {
+    pinMode(selectPins[i], OUTPUT);
+    digitalWrite(selectPins[i], LOW);
+  }
+  pinMode(zOutput, OUTPUT); // Set up Z as an output
 }
 
-void loop() {
+void loop() 
+{
 
-  analogWrite(Z_OUTPUT, 255);
+   uint16_t bit_array = 0; 
+   bool bit;
 
-  static uint16_t counter = 0;
-  static uint16_t bit_array = 0; 
+  // Cycle from pins Y0 to Y7 first
+  for (int pin=0; pin<=3; pin++)
+  {
+    // Set the S0, S1, and S2 pins to select our active
+    // output (Y0-Y7):
+    selectMuxPin(pin);
+    analogWrite(zOutput, 255);
 
-  digitalWrite(S0, counter & 1);
-  digitalWrite(S1, (counter & 2) >> 1); 
-  //delay(1000);
+    bit = analog_to_digital(analogRead(A0));
+    // Serial << analogRead(A0) << endl;
+    bit_array = (bit_array << 1) | bit; 
 
-  bool bit = analog_to_digital(analogRead(A0));
-  Serial << counter << " " << analogRead(A0) << endl;
-  bit_array = (bit_array << 1) | bit;
-  counter += 1;
-
-  if (counter == MAX_COUNTER) {
-    //Serial << bit_array << endl;
-    counter = 0;
-    bit_array = 0;
+    analogWrite(zOutput, 0);
   }
 
+  Serial << bit_array << endl;
+
+}
+
+// The selectMuxPin function sets the S0, S1, and S2 pins
+// accordingly, given a pin from 0-7.
+void selectMuxPin(byte pin)
+{
+  if (pin > 3) return; // Exit if pin is out of scope
+  for (int i=0; i<2; i++)
+  {
+    if (pin & (1<<i))
+      digitalWrite(selectPins[i], HIGH);
+    else
+      digitalWrite(selectPins[i], LOW);
+  }
 }
