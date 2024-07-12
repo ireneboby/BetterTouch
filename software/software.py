@@ -8,7 +8,7 @@ pyautogui.FAILSAFE = True
 COM_PORT = 'COM7'
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
-N = 1
+N = 2
 
 class ScreenControl:
 
