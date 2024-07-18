@@ -5,7 +5,8 @@ from typing import Optional
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
 
-COM_PORT = 'COM7'
+COM_PORT = 'COM7'                       #for Windows
+# COM_PORT = '/dev/cu.usbmodem14201'    # for MacOS
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 N = 2
