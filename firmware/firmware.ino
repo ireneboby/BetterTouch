@@ -21,7 +21,7 @@ const int enable_y_low = 6;           // E~6, G2A~6
 
 /**********************************************************/
 
-bool is_x_diodes_enabled = true;  // 0 if x axis is enabled, 1 if y axis is enabled
+bool is_x_axis_enabled = true;    // 0 if x axis is enabled, 1 if y axis is enabled
 uint16_t bit_array = 0;           // 16 bit array that denotes touch coordinates
 bool bit = 0;                     // digital output after read from currently active x/y photodiode
 
@@ -78,7 +78,7 @@ void enable_x_axis()
 {
   digitalWrite(enable_x_low, LOW);
   digitalWrite(enable_y_low, HIGH);
-  is_x_diodes_enabled = true;
+  is_x_axis_enabled = true;
 }
 
 /* Function to enable y axis, disable x axis */
@@ -86,7 +86,7 @@ void enable_y_axis()
 {
   digitalWrite(enable_x_low, HIGH);
   digitalWrite(enable_y_low, LOW);
-  is_x_diodes_enabled = false;
+  is_x_axis_enabled = false;
 }
 
 /************************************************************
@@ -98,10 +98,10 @@ void cycleAxis()
   {
     setSelectSignals(pin);   
     // analogWrite(zOutput, 255);
-    bit = is_x_diodes_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A1));
+    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A1));
     
     #ifdef DEBUG
-    if (is_x_diodes_enabled) Serial << analogRead(A0) << endl;
+    if (is_x_axis_enabled) Serial << analogRead(A0) << endl;
     else Serial << analogRead(A1) << endl;
     #endif
 
