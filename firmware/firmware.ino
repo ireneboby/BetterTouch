@@ -69,6 +69,8 @@ void loop()
    #ifdef DEBUG
    printBitArray(); 
    #endif
+
+   Serial << bit_array <<endl;
 }
 
 /* Function to enable x axis, disable y axis */
