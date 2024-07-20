@@ -1,12 +1,13 @@
+#include <ArduinoBLE.h>
 #include <Streaming.h>
 
-//#define DEBUG
+// #define DEBUG
 
 /********************** Parameters ***********************/
 
 const int LED_ON_TIME = 500; // Each LED is on 0.5s
 const int DELAY_TIME = ((float)LED_ON_TIME/512.0)*1000;
-const int THRESHOLD = 5;
+const int THRESHOLD = 10;
 
 /* Input Pin Definitions
     A0 ~ mux output from x axis
@@ -16,6 +17,8 @@ const int THRESHOLD = 5;
 const int selectPins[3] = {2, 3, 4};  // S0~2, S1~3, S2~4, A~2, B~3, C~4
 const int enable_x_low = 5;           // E~5, G2A~5
 const int enable_y_low = 6;           // E~6, G2A~6
+
+// const int zOutput = 5; // Connect common (Z) to 5 (PWM-capable) // FOR USING MUX/DEMUX AS DECODER ONLY
 
 /**********************************************************/
 
@@ -48,6 +51,22 @@ void setup()
   pinMode(enable_y_low, OUTPUT);
   digitalWrite(enable_x_low, HIGH);
   digitalWrite(enable_y_low, HIGH);
+
+  // pinMode(zOutput, OUTPUT); // Set up Z as an output
+
+  if (!BLE.begin()) {
+    Serial.println("starting BLE failed!");
+    while (1);
+  }
+
+  BLE.setLocalName("ItsyBitsy");
+  BLE.setAdvertisedService(bitArrayService);
+  bitArrayService.addCharacteristic(bitArrayChar);
+  BLE.addService(bitArrayService);
+  bitArrayChar.writeValue(bit_array);
+
+  BLE.advertise();
+  Serial.println("Bluetooth device active, waiting for connections...");
 }
 
 /************************************************************
@@ -67,6 +86,8 @@ void loop()
    #endif
 
    Serial << bit_array <<endl;
+   bitArrayChar.writeValue((uint8_t*)&bit_array, sizeof(bit_array));
+   delay(500);
 }
 
 /* Function to enable x axis, disable y axis */
@@ -93,6 +114,7 @@ void cycleAxis()
   for (int pin=0; pin<8; pin++)
   {
     setSelectSignals(pin);   
+    // analogWrite(zOutput, 255);
     bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A1));
     
     #ifdef DEBUG
@@ -105,6 +127,7 @@ void cycleAxis()
     #ifdef DEBUG
       delay(500);
     #endif
+    // analogWrite(zOutput, 0);
   }
 }
 
