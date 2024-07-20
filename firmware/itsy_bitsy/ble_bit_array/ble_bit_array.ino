@@ -1,3 +1,4 @@
+#include <ArduinoBLE.h>
 #include <Streaming.h>
 
 // #define DEBUG
@@ -52,6 +53,20 @@ void setup()
   digitalWrite(enable_y_low, HIGH);
 
   // pinMode(zOutput, OUTPUT); // Set up Z as an output
+
+  if (!BLE.begin()) {
+    Serial.println("starting BLE failed!");
+    while (1);
+  }
+
+  BLE.setLocalName("ItsyBitsy");
+  BLE.setAdvertisedService(bitArrayService);
+  bitArrayService.addCharacteristic(bitArrayChar);
+  BLE.addService(bitArrayService);
+  bitArrayChar.writeValue(bit_array);
+
+  BLE.advertise();
+  Serial.println("Bluetooth device active, waiting for connections...");
 }
 
 /************************************************************
@@ -71,6 +86,8 @@ void loop()
    #endif
 
    Serial << bit_array <<endl;
+   bitArrayChar.writeValue((uint8_t*)&bit_array, sizeof(bit_array));
+   delay(500);
 }
 
 /* Function to enable x axis, disable y axis */
