@@ -13,10 +13,10 @@ const int THRESHOLD = 10;
     A0 ~ mux output from x axis
     A1 ~ mux output from y axis */
 
-// Output Pin Definitions
-const int selectPins[3] = {2, 3, 4};  // S0~2, S1~3, S2~4, A~2, B~3, C~4
-const int enable_x_low = 5;           // E~5, G2A~5
-const int enable_y_low = 6;           // E~6, G2A~6
+// Output Pin Definitions - ITSY 
+const int selectPins[3] = {11, 12, 13};  // S0~11, S1~12, S2~13, A~11, B~12, C~13
+const int enable_x_low = 9;           // E~9, G2A~10
+const int enable_y_low = 10;           // E~9, G2A~10
 
 // const int zOutput = 5; // Connect common (Z) to 5 (PWM-capable) // FOR USING MUX/DEMUX AS DECODER ONLY
 
