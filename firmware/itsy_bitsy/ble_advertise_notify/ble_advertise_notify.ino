@@ -108,13 +108,6 @@ void loop()
   delay(1000);  // Send the number every second
 }
 
-void count(uint16_t conn_handle) {
-  for (int i = 1; i <= 100; i++) {
-      customChar.notify16(conn_handle, i); // Notify the connected central with the current count
-      delay(1000); // Send a number every second
-    }
-}
-
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
 {
@@ -128,9 +121,6 @@ void connect_callback(uint16_t conn_handle)
   Serial.print("Connected to ");
   Serial.println(central_name);
   connected = true;
-
-  // Start counting and sending notifications
-  count(conn_handle);
 }
 
 /**
