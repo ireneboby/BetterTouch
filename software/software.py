@@ -9,7 +9,7 @@ COM_PORT = 'COM7'                       #for Windows
 # COM_PORT = '/dev/cu.usbmodem14201'    # for MacOS
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
-N = 2
+N = 8
 
 class ScreenControl:
 
@@ -68,7 +68,7 @@ class ScreenControl:
                 x_index += i
         if x_index_count == 0:
             return None
-        x_coord = round(x_index/x_index_count*(self.x_pixels - 500) + 200) # FIXME
+        x_coord = round((1 - x_index/x_index_count/N)*self.x_pixels)
 
         y_coord = None
         y_index = 0
@@ -77,7 +77,7 @@ class ScreenControl:
             if bit:
                 y_index_count += 1
                 y_index += i
-        y_coord = round(y_index/y_index_count*(self.y_pixels - 500) + 350) # FIXME
+        y_coord = round((y_index/y_index_count/N)*self.y_pixels)
 
         return x_coord, y_coord
     
