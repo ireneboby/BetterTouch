@@ -1,4 +1,6 @@
+#include <Arduino.h>
 #include <Streaming.h>
+#include <Adafruit_TinyUSB.h>
 
 //#define DEBUG
 
