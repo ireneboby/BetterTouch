@@ -1,25 +1,19 @@
 # Progress Report #
 
 ## Windows ##
-No lag and holding values
-
-Extra etching after drag has stopped
-
-Corners not matched
+1. No lag and holding values
+2. Extra etching after drag has stopped
+3. Corners not matched
 
 ## MacOS ##
-Lag and holding values on Irene's Mac
-
-Extra etching after drag has stopped
-
-Corners not matched
-
+1. Lag and holding values on Irene's Mac
+2. Extra etching after drag has stopped
+3. Corners not matched
 
 ## Test plan ##
-
-Run on Ella's Mac (see if lag can be reproduced)
+1. Run on Ella's Mac (see if lag can be reproduced)
 
 ## Next Steps ##
-Fix extra etching
-
-Align corners of frame with corners of drawing area
+1. Fix extra etching
+2. Align corners of frame with corners of drawing area
+3. Fix MacOS if Ella's does not work either
