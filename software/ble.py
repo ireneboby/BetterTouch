@@ -35,11 +35,9 @@ class ScreenControl:
         #self.port = serial.Serial(COM_PORT, BAUD_RATE)
         self.x_pixels, self.y_pixels = pyautogui.size()
 
-    def data_parsing(self, data: int) -> Optional[tuple[list[bool], list[bool]]]:
-        if not data:
+    def data_parsing(self, data: Optional[int]) -> Optional[tuple[list[bool], list[bool]]]:
+        if data is None:
             return None
-        
-        data = int(data)
 
         # get the horizontal coordinates
         x_bit_array = []
@@ -103,15 +101,15 @@ class ScreenControl:
 screen_control = ScreenControl()
 
 async def notification_handler(sender, data):
-    bit_array = int.from_bytes(data, byteorder='little')
+    data = int.from_bytes(data, byteorder='little')
     #print(f"Received count: {bit_array}")
 
     # Parse bit array into coordinates
-    parsed_data = screen_control.data_parsing(bit_array)
-    if parsed_data is None:
+    bit_array = screen_control.data_parsing(data)
+    if bit_array is None:
         return
 
-    coord = screen_control.coordinate_determination(parsed_data)
+    coord = screen_control.coordinate_determination(bit_array)
     print(coord)
     if coord is None:
         screen_control.inject_touch()
