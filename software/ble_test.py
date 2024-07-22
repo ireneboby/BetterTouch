@@ -6,8 +6,8 @@ CUSTOM_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
 CUSTOM_CHAR_UUID = "00005678-0000-1000-8000-00805f9b34fb"
 
 async def notification_handler(sender, data):
-    count = int.from_bytes(data, byteorder='little')
-    print(f"Received count: {count}")
+    bit_array = int.from_bytes(data, byteorder='little')
+    print(f"Received count: {bit_array}")
 
 async def main():
     devices = await BleakScanner.discover()
@@ -43,6 +43,11 @@ async def main():
                 # print("Waiting...")
         except KeyboardInterrupt:
             print("Program interrupted")
+
+def printBitArray(bit_array):
+  for i in range(0, 15):
+    print (f"{((bit_array >> i) & 1)}")
+  print("\n")
 
 if __name__ == "__main__":
     asyncio.run(main())
