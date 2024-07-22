@@ -5,7 +5,7 @@
 #include <Streaming.h>
 #include <Adafruit_TinyUSB.h>
 
-//#define DEBUG
+#define DEBUG
 
 /* BLE */
 /****************************************************************************/
@@ -28,7 +28,7 @@ uint16_t connection_handle = 0;  // variable to store the connection handle
 /****************************************************************************/
 const int LED_ON_TIME = 500; // Each LED is on 0.5s
 const int DELAY_TIME = ((float)LED_ON_TIME/512.0)*1000;
-const int THRESHOLD = 5;
+const int THRESHOLD = 8;
 /*  A0 ~ mux output from x axis
     A1 ~ mux output from y axis */
 const int selectPins[3] = {11, 12, 13}; // S0~2, S1~3, S2~4, A~2, B~3, C~4
@@ -168,7 +168,7 @@ void cycleAxis()
   for (int pin=0; pin<8; pin++)
   {
     setSelectSignals(pin);   
-    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A1));
+    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(10));
     
     #ifdef DEBUG
       if (is_x_axis_enabled) Serial << analogRead(A0) << endl;
@@ -178,7 +178,7 @@ void cycleAxis()
     bit_array = (bit_array << 1) | bit;
 
     #ifdef DEBUG
-      delay(500);
+      delay(300);
     #endif
   }
 }

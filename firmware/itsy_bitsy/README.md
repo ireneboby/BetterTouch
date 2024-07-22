@@ -1,7 +1,5 @@
 # Arduino IDE Setup for Adafruit ItsyBitsy nRF52840 Express
 
-This guide will help you set up the Arduino IDE for use with the Adafruit ItsyBitsy nRF52840 Express. Follow these steps to add the board manager, select the correct board, and configure the DFU bootloader.
-
 ## 1. Add Board Manager
 
 1. Open the Arduino IDE.
@@ -26,9 +24,9 @@ This guide will help you set up the Arduino IDE for use with the Adafruit ItsyBi
 
 ## 4. Compile and Upload Code
 
-You can now compile and upload code to your Adafruit ItsyBitsy nRF52840 Express as usual.
+You can now compile and upload code to ItsyBitsy nRF52840 Express as usual.
 
 ### Additional Information
 
 - Make sure you have installed the necessary libraries for your project. You can install libraries via the **Library Manager** in the Arduino IDE (**Sketch** > **Include Library** > **Manage Libraries**).
-- If you encounter any issues with uploading code, ensure your ItsyBitsy is in bootloader mode by double-clicking the reset button to see the red LED pulsing.
+- If you encounter any issues with uploading code, ensure ItsyBitsy is in bootloader mode by double-clicking the reset button to see the red LED pulsing.
