@@ -11,8 +11,8 @@ CUSTOM_CHAR_UUID = "00005678-0000-1000-8000-00805f9b34fb"
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
 
-# COM_PORT = 'COM7'                       #for Windows
-COM_PORT = '/dev/cu.usbmodem142101'    # for MacOS
+#COM_PORT = 'COM7'                       #for Windows
+#COM_PORT = '/dev/cu.usbmodem142101'    # for MacOS
 BAUD_RATE = 115200
 N = 8
 
@@ -32,7 +32,7 @@ class ScreenControl:
 
     def __init__(self) -> None:
         self.touching = False
-        self.port = serial.Serial(COM_PORT, BAUD_RATE)
+        #self.port = serial.Serial(COM_PORT, BAUD_RATE)
         self.x_pixels, self.y_pixels = pyautogui.size()
 
     def data_parsing(self, data: int) -> Optional[tuple[list[bool], list[bool]]]:
