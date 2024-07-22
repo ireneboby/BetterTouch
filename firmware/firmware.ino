@@ -22,8 +22,8 @@ const int enable_y_low = 6;           // E~6, G2A~6
 
 // Output Pin Definitions - ITSY 
 const int selectPins[3] = {11, 12, 13};  // S0~2, S1~3, S2~4, A~2, B~3, C~4
-const int enable_x_low = 9;           // E~5, G2A~5
-const int enable_y_low = 10;           // E~6, G2A~6
+const int enable_x_low = 7;           // E~5, G2A~5
+const int enable_y_low = 9;           // E~6, G2A~6
 
 /**********************************************************/
 
@@ -101,7 +101,7 @@ void cycleAxis()
   for (int pin=0; pin<8; pin++)
   {
     setSelectSignals(pin);   
-    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A1));
+    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(A10));
     
     #ifdef DEBUG
       if (is_x_axis_enabled) Serial << analogRead(A0) << endl;
