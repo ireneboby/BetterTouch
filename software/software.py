@@ -2,6 +2,7 @@ import asyncio
 from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
+from statistics import mode
 from typing import Optional
 
 pyautogui.PAUSE = 2.5
@@ -27,10 +28,10 @@ def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid."""
 
     # get the x (horizontal) coordinate
-    x_bit_array = [data >> i & 1 for i in range(0, N)]
+    y_bit_array = [data >> i & 1 for i in range(N-1, -1, -1)]
 
     # get the y (vertical) coordinate
-    y_bit_array = [data >> i & 1 for i in range(N, N + M)]
+    x_bit_array = [data >> i & 1 for i in range(N+M-1, N-1, -1)]
 
     # check validity of coordinates
     if any(x_bit_array) != any(y_bit_array):
@@ -38,7 +39,7 @@ def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     
     return x_bit_array, y_bit_array
 
-def coordinate_determination(self, x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
+def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
         """Converts bit arrays into coordinates of the touch. Returns None if no touch."""
 
         x_index = 0
@@ -49,7 +50,7 @@ def coordinate_determination(self, x_bit_array: list[bool], y_bit_array: list[bo
                 x_index += i
         if x_index_count == 0:
             return None
-        x_coord = round((1 - x_index/x_index_count/N)*X_PIXELS)
+        x_coord = round((x_index/x_index_count/N)*X_PIXELS)
 
         y_coord = None
         y_index = 0
@@ -111,9 +112,12 @@ class SingleTouchState(ScreenState):
         return None
 
 curr_state = UntouchedState()
+window = []
+WINDOW_SIZE = 10
 
 def main_serial():
     port = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
+    global curr_state
     
     while True:
         data = port.readline().decode().strip()
@@ -125,11 +129,25 @@ def main_serial():
             curr_state = next_state
 
 async def _notification_handler(sender, data):
+    global curr_state
+    global window 
+
     data = int.from_bytes(data, byteorder='little')
+
+    if len(window) == WINDOW_SIZE:
+        tmp_var = data
+        data = mode(window)
+        window = [tmp_var]
+    else:
+        window.append(data)
+        return
     
     next_state = curr_state.on_event(data)
     if not next_state is None:
         curr_state = next_state
+
+    if data != 0:
+        print(curr_state.__class__.__name__, data)
 
 async def main_ble():
     devices = await BleakScanner.discover()
@@ -167,5 +185,5 @@ async def main_ble():
         
 
 if __name__ == "__main__":
-    main_serial()
-    #asyncio.run(main_ble())
+    #main_serial()
+    asyncio.run(main_ble())
