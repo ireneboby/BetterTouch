@@ -22,7 +22,12 @@ M = 8
 
 WINDOW_SIZE = 10
 
-X_PIXELS, Y_PIXELS = pyautogui.size()
+X_MIN = 25
+X_MAX = 1050
+Y_MIN = 145
+Y_MAX = 700
+#X_PIXELS, Y_PIXELS = pyautogui.size()
+
 
 def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid."""
@@ -50,7 +55,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
                 x_index += i
         if x_index_count == 0:
             return None
-        x_coord = round((x_index/x_index_count/N)*X_PIXELS)
+        x_coord = round((x_index/x_index_count/N)*(X_MAX-X_MIN) + X_MIN)
 
         y_coord = None
         y_index = 0
@@ -59,7 +64,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
             if bit:
                 y_index_count += 1
                 y_index += i
-        y_coord = round((y_index/y_index_count/M)*Y_PIXELS)
+        y_coord = round((y_index/y_index_count/M)*(Y_MAX-Y_MIN) + Y_MIN)
 
         return x_coord, y_coord
 
