@@ -139,13 +139,13 @@ async def _notification_handler(sender, data):
 
     data = int.from_bytes(data, byteorder='little')
 
-    if len(window) == WINDOW_SIZE:
-        tmp_var = data
-        data = mode(window)
-        window = [tmp_var]
-    else:
-        window.append(data)
-        return
+    # if len(window) == WINDOW_SIZE:
+    #     tmp_var = data
+    #     data = mode(window)
+    #     window = [tmp_var]
+    # else:
+    #     window.append(data)
+    #     return
     
     next_state = curr_state.on_event(data)
     if not next_state is None:
