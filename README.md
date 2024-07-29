@@ -4,7 +4,7 @@
 
 ### Windows 
 
-In the command prompt, create a virtual environment and activate it. Then install the packages in `requirements.txt`. 
+In the command prompt, create a virtual environment and activate it.
 
 ```
 python -m path\to\env
