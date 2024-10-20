@@ -30,8 +30,8 @@ const int LED_ON_TIME = 500; // Each LED is on 0.5s
 const int DELAY_TIME = ((float)LED_ON_TIME/512.0)*1000;
 const int THRESHOLD = 10;
 /*  A0 ~ mux output from x axis
-    A1 ~ mux output from y axis */
-const int selectPins[3] = {11, 12, 13}; // S0~2, S1~3, S2~4, A~2, B~3, C~4
+    10 ~ mux output from y axis */
+const int selectPins[3] = {11, 12, 13}; // S0~11, S1~12, S2~13, A~11, B~12, C~13
 const int enable_x_low = 7;             // E~7, G2A~7
 const int enable_y_low = 9;             // E~9, G2A~9
 bool is_x_axis_enabled = true;          // 0 if x axis is enabled, 1 if y axis is enabled
