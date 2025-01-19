@@ -34,4 +34,6 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+MAC may need to make changes in the accessibility:
+
 

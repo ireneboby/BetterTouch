@@ -3,7 +3,7 @@
 ## 1. Add Board Manager
 
 1. Open the Arduino IDE.
-2. Go to **File** > **Preferences**.
+2. Go to **Arduino IDE** > **Settings**.
 3. In the **Additional Board Manager URLs** field, add the following URL:
     ```
     http://adafruit.github.io/arduino-board-index/package_adafruit_index.json
@@ -30,3 +30,7 @@ You can now compile and upload code to ItsyBitsy nRF52840 Express as usual.
 
 - Make sure you have installed the necessary libraries for your project. You can install libraries via the **Library Manager** in the Arduino IDE (**Sketch** > **Include Library** > **Manage Libraries**).
 - If you encounter any issues with uploading code, ensure ItsyBitsy is in bootloader mode by double-clicking the reset button to see the red LED pulsing.
+
+Itsy Bitsy can be powered in two ways:
+USB powered using laptop / outlets
+The Lipo battery
