@@ -26,8 +26,9 @@ uint16_t connection_handle = 0;  // variable to store the connection handle
 
 /* Frame Controls */
 /****************************************************************************/
-const int LED_ON_TIME_MS = 500; // Each LED is on 1ms
-const int DELAY_TIME = ((float)LED_ON_TIME_MS/512.0)*1000;
+// const int LED_ON_TIME_MS = 500; // Each LED is on 1ms // Dont know why we have this in the first place
+// const int DELAY_TIME = ((float)LED_ON_TIME_MS/512.0)*1000; // Dont know why we have this in the first place
+const int DELAY_TIME_MICRO = 500
 const int THRESHOLD_x = 10;
 const int THRESHOLD_y = 10;
 
@@ -205,7 +206,7 @@ void cycleSubgrid()
       delay(1000);
     #endif
 
-    delay(DELAY_TIME);
+    delayMicroseconds(DELAY_TIME_MICRO);
   }
 }
 
