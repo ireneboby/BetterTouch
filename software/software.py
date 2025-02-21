@@ -17,17 +17,14 @@ COM_PORT = 'COM7'                       # for Windows
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 
-N = 8
-M = 8
-
-WINDOW_SIZE = 10
+N = 48
+M = 24
 
 X_MIN = 25
 X_MAX = 1050
 Y_MIN = 145
 Y_MAX = 700
 #X_PIXELS, Y_PIXELS = pyautogui.size()
-
 
 def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid."""
