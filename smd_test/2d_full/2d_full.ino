@@ -6,6 +6,7 @@
 #include <Adafruit_TinyUSB.h>
 
 #define DEBUG
+const int DELAY_DEBUG = 1000;
 
 /* BLE */
 /****************************************************************************/
@@ -26,58 +27,49 @@ uint16_t connection_handle = 0;  // variable to store the connection handle
 
 /* Frame Controls */
 /****************************************************************************/
-// const int LED_ON_TIME_MS = 500; // Each LED is on 1ms // Dont know why we have this in the first place
-// const int DELAY_TIME = ((float)LED_ON_TIME_MS/512.0)*1000; // Dont know why we have this in the first place
-const int DELAY_TIME_MICRO = 500
-const int THRESHOLD_x = 10;
-const int THRESHOLD_y = 10;
+const int DELAY_TIME_MICRO = 500;
+const int THRESHOLD_X = 10;
+const int THRESHOLD_Y = 10;
 
-/*  A0 ~ mux output from x axis
-    10 ~ mux output from y axis */
+// Output Pins
+const int OUTPUT_X_PIN = A0;
+const int OUTPUT_Y_PIN = A1; 
 
-// Level 1 Mux Selects (that control the LED/photodiodes)
-const int selectL1[3] = {11, 12, 13};   // S0~11, S1~12, S2~13, A~11, B~12, C~13
-// Level 2 Mux Selects (that control the Sub Grids)
-const int selectL2[3] = {14, 15, 16};
+// Mux Selects
+const int NUM_SELECT_PINS = 6;
+const int SELECT_PINS[NUM_SELECT_PINS] = {13, 12, 11, 10, 9, 7}; // S2-2~13, ... , S0-1~7
 
 // Enable Signals (Active Low)
-const int enable_x_low = 7;             // E~7, G2A~7
-const int enable_y_low = 9;             // E~9, G2A~9
+const int ENABLE_X_PIN = 5;             
+const int ENABLE_Y_PIN = 2; 
 
-bool is_x_axis_enabled = true;          // 0 if x axis is enabled, 1 if y axis is enabled
-uint128_t bit_array = 0;                // 128 bit array that denotes touch coordinates (We only use 72 bits)
+bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
+int bit_array = 0;                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
 bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
-
 /****************************************************************************/
 
 /* Grid constants */
 /****************************************************************************/
-const int no_subgrid_pairs = 8;                    // number of pairs on each subgrid
-const int x_len = 48;               // total pairs on x axis
-const int y_len = 24;               // total pairs on y axis
-const int x_subgrids = x_len / no_subgrid_pairs;   // number of x subgrids
-const int y_subgrids = y_len / no_subgrid_pairs;   // number of y subgrids
+const int X_LEN = 48;                   // total pairs on x axis
+const int Y_LEN = 24;                   // total pairs on y axis
 /****************************************************************************/
 
 void setup()
 {
   Serial.begin(115200);
-  pinMode(A0, INPUT);
   
-  for (int i=0; i<3; i++)
-  {
-    pinMode(selectL1[i], OUTPUT);
-    digitalWrite(selectL1[i], LOW);
-
-    pinMode(selectL2[i], OUTPUT);
-    digitalWrite(selectL1[i], LOW);
+  pinMode(OUTPUT_X_PIN, INPUT);
+  pinMode(OUTPUT_Y_PIN, INPUT);
+  
+  for (int i = 0; i < NUM_SELECT_PINS; i++) {
+    pinMode(SELECT_PINS[i], OUTPUT);
+    digitalWrite(SELECT_PINS[i], LOW);
   }
 
-  pinMode(enable_x_low, OUTPUT);
-  pinMode(enable_y_low, OUTPUT);
-  // To start, x axis is first enabled
-  digitalWrite(enable_x_low, LOW);
-  digitalWrite(enable_y_low, HIGH);
+  pinMode(ENABLE_X_PIN, OUTPUT);
+  pinMode(ENABLE_Y_PIN, OUTPUT);
+  digitalWrite(ENABLE_X_PIN, HIGH);
+  digitalWrite(ENABLE_Y_PIN, HIGH);
 
   // Set up bluetooth and advertise presence of frame
   bleSetup();
@@ -125,7 +117,7 @@ void loop()
 
   #ifdef DEBUG
     printBitArray(); 
-   #endif
+  #endif
 
   // If connection is active, send the count value over BLE
   if (connected) { 
@@ -164,50 +156,7 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   Return 1 if touch is detected on that pair based on mux input
 ************************************************************/
 bool analog_to_digital(uint16_t analog_input) {
-    if is_x_axis_enabled {
-        return analog_input < THRESHOLD_x
-    }
-  return analog_input < THRESHOLD_y;
-}
-
-/* Function to enable x axis, disable y axis */
-void enable_x_axis()
-{
-  digitalWrite(enable_x_low, LOW);
-  digitalWrite(enable_y_low, HIGH);
-  is_x_axis_enabled = true;
-}
-
-/* Function to enable y axis, disable x axis */
-void enable_y_axis()
-{
-  digitalWrite(enable_x_low, HIGH);
-  digitalWrite(enable_y_low, LOW);
-  is_x_axis_enabled = false;
-}
-
-/************************************************************
-  Cycle through pins on the x axis subgrid
-************************************************************/
-void cycleSubgrid()
-{
-  for (int pin=0; pin < no_subgrid_pairs; pin++)
-  {
-    setL1SelectSignals(pin);
-    touch_bit = analog_to_digital(is_x_axis_enabled ? analogRead(A0) : analogRead(10));
-    
-    #ifdef DEBUG
-      Serial << "Pair " << pin << ": " << is_x_axis_enabled ? analogRead(A0) : analogRead(10) << endl;
-    #endif
- 
-    bit_array = (bit_array << 1) | touch_bit;
-
-    #ifdef DEBUG
-      delay(1000);
-    #endif
-
-    delayMicroseconds(DELAY_TIME_MICRO);
-  }
+  return is_x_axis_enabled ? analog_input < THRESHOLD_X : analog_input < THRESHOLD_Y;
 }
 
 /************************************************************
@@ -215,11 +164,22 @@ void cycleSubgrid()
 ************************************************************/
 void cycleX()
 {
-  enable_x_axis();
-  for (int mux=0; mux < x_subgrids; mux ++) {
-        selectMux(mux, x_subgrids)
-        cycleSubgrid();
-    }
+  digitalWrite(ENABLE_X_PIN, LOW);
+  digitalWrite(ENABLE_Y_PIN, HIGH);
+  is_x_axis_enabled = true;
+
+  for (int i = 0; i < X_LEN; i++) {
+    setSelectSignal(i); 
+
+    touch_bit = analog_to_digital(analogRead(OUTPUT_X_PIN));
+    #ifdef DEBUG
+      Serial << "x = " << i + 1 << ": " << analogRead(OUTPUT_X_PIN) << endl;
+      delay(DELAY_DEBUG);
+    #endif
+    bit_array = (bit_array << 1) | touch_bit;
+
+    delayMicroseconds(DELAY_TIME_MICRO);
+  }
 }
 
 /************************************************************
@@ -227,43 +187,35 @@ void cycleX()
 ************************************************************/
 void cycleY()
 {
-  enable_y_axis();
-  for (int mux=0; mux < y_subgrids; mux ++) {
-        selectMux(mux, y_subgrids)
-        cycleSubgrid();
-    }
-}
+  digitalWrite(ENABLE_X_PIN, HIGH);
+  digitalWrite(ENABLE_Y_PIN, LOW);
+  is_x_axis_enabled = false;
 
-/************************************************************
-  @param pin : 0-7 denotes which pin to turn on 
-  Sets the select signals to turn on pair on that pin
-************************************************************/
-void setL1SelectSignals(byte pin)
-{
-  if (pin >= no_subgrid_pairs) return; // Exit if pin is out of scope i.e we want pin to be in [0, 7]
-  for (int i=0; i<3; i++) 
-  {
-    if (pin & (1<<i))
-      digitalWrite(selectL1[i], HIGH);
-    else
-      digitalWrite(selectL1[i], LOW);
+  for (int i = 0; i < Y_LEN; i++) {
+    setSelectSignal(i); 
+
+    touch_bit = analog_to_digital(analogRead(OUTPUT_Y_PIN));
+    #ifdef DEBUG
+      Serial << "y = " << i + 1 << ": " << analogRead(OUTPUT_Y_PIN) << endl;
+      delay(DELAY_DEBUG);
+    #endif
+    bit_array = (bit_array << 1) | touch_bit;
+
+    delayMicroseconds(DELAY_TIME_MICRO);
   }
 }
 
 /************************************************************
-  @param pin : Denotes which mux to turn on 
-  @param n : Denotes number of muxes 
+  @param pin : denotes which pin to turn on 
   Sets the select signals to turn on pair on that pin
 ************************************************************/
-void selectMux(byte mux, byte n)
-{
-  if (mux >= n) return; // Exit if mux index is out of scope i.e we want mux to be in [0, number of muxes - 1]
-  for (int i=0; i<3; i++) 
-  {
-    if (mux & (1<<i))
-      digitalWrite(selectL2[i], HIGH);
-    else
-      digitalWrite(selectL2[i], LOW);
+void setSelectSignal(int pin) {
+  for (int i = 0; i < NUM_SELECT_PINS; i++) {
+    if (pin & (1 << i)) {
+      digitalWrite(SELECT_PINS[NUM_SELECT_PINS - 1 - i], HIGH);
+    } else {
+      digitalWrite(SELECT_PINS[NUM_SELECT_PINS - 1 - i], LOW);
+    }
   }
 }
 
@@ -273,7 +225,7 @@ void selectMux(byte mux, byte n)
 void printBitArray()
 {
   Serial << "bit_array: ";
-  for (int i = 127; i >= 0; i--)
+  for (int i = 72; i >= 0; i--)
   {
     Serial << ((bit_array >> i) & 1);
   }
