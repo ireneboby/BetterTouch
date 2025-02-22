@@ -5,7 +5,7 @@
 #include <Streaming.h>
 #include <Adafruit_TinyUSB.h>
 
-#define DEBUG
+//#define DEBUG
 const int DELAY_DEBUG = 1000;
 
 #define DATA_COLLECTION_MODE
@@ -30,21 +30,21 @@ uint16_t connection_handle = 0;  // variable to store the connection handle
 
 /* Frame Controls */
 /****************************************************************************/
-const int DELAY_TIME_MICRO = 500;
-const int THRESHOLD_X = 10;
+const int DELAY_TIME_MICRO = 180;
+const int THRESHOLD_X = 90;
 const int THRESHOLD_Y = 10;
 
 // Output Pins
 const int OUTPUT_X_PIN = A0;
-const int OUTPUT_Y_PIN = A1; 
+const int OUTPUT_Y_PIN = 10; 
 
 // Mux Selects
 const int NUM_SELECT_PINS = 6;
-const int SELECT_PINS[NUM_SELECT_PINS] = {13, 12, 11, 10, 9, 7}; // S2-2~13, ... , S0-1~7
+const int SELECT_PINS[NUM_SELECT_PINS] = {5, 7, 9, 11, 12, 13}; // S2-2~5, S0-1~13
 
 // Enable Signals (Active Low)
-const int ENABLE_X_PIN = 5;             
-const int ENABLE_Y_PIN = 2; 
+const int ENABLE_X_PIN = 23;             
+const int ENABLE_Y_PIN = 24;  
 
 bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
 int bit_array = 0;                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
