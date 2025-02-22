@@ -119,13 +119,16 @@ void loop()
     unsigned long start_time = micros();
     unsigned long cycling_time = 0;
     unsigned long ble_latency = 0;
-    unsigned long refresh_time = 0
+    unsigned long refresh_time = 0;
   #endif
 
   cycleX();   
   cycleY();
+  
+  #ifdef DEBUG
+    printBitArray(); 
+  #endif
 
-  printBitArray(); 
 
   #ifdef DATA_COLLECTION_MODE
     cycling_time = micros() - start_time;
@@ -136,13 +139,13 @@ void loop()
     customChar.notify(connection_handle, bit_array, 72);  // Notify the connected central with the current count
   }
   #ifdef DATA_COLLECTION_MODE
-    ble_latency = micros() - cycling_time;
+    ble_latency = micros() - start_time;
   #endif
 
   #ifdef DATA_COLLECTION_MODE
     refresh_time = micros() - start_time;
     Serial << "Cycling time: " << cycling_time << " microseconds." << endl;
-    Serial << "Bluetooth sending array latency: " << ble_latency << " microseconds." << endl;
+    Serial << "Cycling time + Sending array over Bluetooth: " << ble_latency << " microseconds." << endl;
     Serial << "Refresh time: " << refresh_time << " microseconds." << endl;
     delay(DATA_MODE_DELAY);
   #endif
