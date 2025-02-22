@@ -5,7 +5,11 @@
 #include <Streaming.h>
 #include <Adafruit_TinyUSB.h>
 
-//#define DEBUG
+#define DEBUG
+const int DELAY_DEBUG = 1000;
+
+#define DATA_COLLECTION_MODE
+const int DATA_MODE_DELAY = 5000;
 
 /* BLE */
 /****************************************************************************/
@@ -24,35 +28,53 @@ bool connected = false;  // Flag to track if there is an active connection
 uint16_t connection_handle = 0;  // variable to store the connection handle
 /****************************************************************************/
 
-/* Frame */
+/* Frame Controls */
 /****************************************************************************/
-const int LED_ON_TIME = 500; // Each LED is on 0.5s
-const int DELAY_TIME = ((float)LED_ON_TIME/512.0)*1000;
-const int THRESHOLD = 10;
-/*  A0 ~ mux output from x axis
-    10 ~ mux output from y axis */
-const int selectPins[3] = {11, 12, 13}; // S0~11, S1~12, S2~13, A~11, B~12, C~13
-const int enable_x_low = 7;             // E~7, G2A~7
-const int enable_y_low = 9;             // E~9, G2A~9
-bool is_x_axis_enabled = true;          // 0 if x axis is enabled, 1 if y axis is enabled
-uint16_t bit_array = 0;                 // 16 bit array that denotes touch coordinates
-bool bit = 0;                           // digital output after read from currently active x/y photodiode
+const int DELAY_TIME_MICRO = 180;
+const int THRESHOLD_X = 90;
+const int THRESHOLD_Y = 10;
+
+// Output Pins
+const int OUTPUT_X_PIN = A0;
+const int OUTPUT_Y_PIN = 10; 
+
+// Mux Selects
+const int NUM_SELECT_PINS = 6;
+const int SELECT_PINS[NUM_SELECT_PINS] = {5, 7, 9, 11, 12, 13}; // S2-2~5, S0-1~13
+
+// Enable Signals (Active Low)
+const int ENABLE_X_PIN = 23;             
+const int ENABLE_Y_PIN = 24;  
+
+bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
+bool bit_array[72] = {0};                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
+bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
+/****************************************************************************/
+
+/* Grid constants */
+/****************************************************************************/
+const int X_LEN = 48;                   // total pairs on x axis
+const int Y_LEN = 24;                   // total pairs on y axis
 /****************************************************************************/
 
 void setup()
 {
   Serial.begin(115200);
   
-  for (int i=0; i<3; i++)
-  {
-    pinMode(selectPins[i], OUTPUT);
-    digitalWrite(selectPins[i], LOW);
+  pinMode(OUTPUT_X_PIN, INPUT);
+  pinMode(OUTPUT_Y_PIN, INPUT);
+  
+  for (int i = 0; i < NUM_SELECT_PINS; i++) {
+    pinMode(SELECT_PINS[i], OUTPUT);
+    digitalWrite(SELECT_PINS[i], LOW);
   }
-  pinMode(enable_x_low, OUTPUT);
-  pinMode(enable_y_low, OUTPUT);
-  digitalWrite(enable_x_low, HIGH);
-  digitalWrite(enable_y_low, HIGH);
 
+  pinMode(ENABLE_X_PIN, OUTPUT);
+  pinMode(ENABLE_Y_PIN, OUTPUT);
+  digitalWrite(ENABLE_X_PIN, HIGH);
+  digitalWrite(ENABLE_Y_PIN, HIGH);
+
+  // Set up bluetooth and advertise presence of frame
   bleSetup();
   startAdv();
 }
@@ -93,21 +115,40 @@ void startAdv(void)
 
 void loop()
 {
-  enable_x_axis();
-  cycleAxis();
-  enable_y_axis();    
-  cycleAxis();
+  #ifdef DATA_COLLECTION_MODE
+    unsigned long start_time = micros();
+    unsigned long cycling_time = 0;
+    unsigned long ble_latency = 0;
+    unsigned long refresh_time = 0;
+  #endif
 
-  Serial << bit_array <<endl;
-
+  cycleX();   
+  cycleY();
+  
   #ifdef DEBUG
     printBitArray(); 
-   #endif
+  #endif
+
+
+  #ifdef DATA_COLLECTION_MODE
+    cycling_time = micros() - start_time;
+  #endif
 
   // If connection is active, send the count value over BLE
   if (connected) { 
-    customChar.notify16(connection_handle, bit_array);  // Notify the connected central with the current count
+    customChar.notify(connection_handle, bit_array, 72);  // Notify the connected central with the current count
   }
+  #ifdef DATA_COLLECTION_MODE
+    ble_latency = micros() - start_time;
+  #endif
+
+  #ifdef DATA_COLLECTION_MODE
+    refresh_time = micros() - start_time;
+    Serial << "Cycling time: " << cycling_time << " microseconds." << endl;
+    Serial << "Cycling time + Sending array over Bluetooth: " << ble_latency << " microseconds." << endl;
+    Serial << "Refresh time: " << refresh_time << " microseconds." << endl;
+    delay(DATA_MODE_DELAY);
+  #endif
 }
 
 // callback invoked when central connects
@@ -141,61 +182,66 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   Return 1 if touch is detected on that pair based on mux input
 ************************************************************/
 bool analog_to_digital(uint16_t analog_input) {
-  return analog_input < THRESHOLD;
-}
-
-/* Function to enable x axis, disable y axis */
-void enable_x_axis()
-{
-  digitalWrite(enable_x_low, LOW);
-  digitalWrite(enable_y_low, HIGH);
-  is_x_axis_enabled = true;
-}
-
-/* Function to enable y axis, disable x axis */
-void enable_y_axis()
-{
-  digitalWrite(enable_x_low, HIGH);
-  digitalWrite(enable_y_low, LOW);
-  is_x_axis_enabled = false;
+  return is_x_axis_enabled ? analog_input < THRESHOLD_X : analog_input < THRESHOLD_Y;
 }
 
 /************************************************************
-  Cycle through pins 0-7 on that axis
+  Cycle through the x axis
 ************************************************************/
-void cycleAxis()
+void cycleX()
 {
-  for (int pin=0; pin<8; pin++)
-  {
-    setSelectSignals(pin);   
-    bit = is_x_axis_enabled ? analog_to_digital(analogRead(A0)) : analog_to_digital(analogRead(10));
-    
-    #ifdef DEBUG
-      if (is_x_axis_enabled) Serial << analogRead(A0) << endl;
-      else Serial << analogRead(10) << endl;
-    #endif
+  digitalWrite(ENABLE_X_PIN, LOW);
+  digitalWrite(ENABLE_Y_PIN, HIGH);
+  is_x_axis_enabled = true;
 
-    bit_array = (bit_array << 1) | bit;
+  for (int i = 0; i < X_LEN; i++) {
+    setSelectSignal(i); 
 
+    touch_bit = analog_to_digital(analogRead(OUTPUT_X_PIN));
     #ifdef DEBUG
-      delay(300);
+      Serial << "x = " << i + 1 << ": " << analogRead(OUTPUT_X_PIN) << endl;
+      delay(DELAY_DEBUG);
     #endif
+    bit_array[i + Y_LEN] = touch_bit; 
+
+    delayMicroseconds(DELAY_TIME_MICRO);
   }
 }
 
 /************************************************************
-  @param pin : 0-7 denotes which pin to turn on 
+  Cycle through the y axis
+************************************************************/
+void cycleY()
+{
+  digitalWrite(ENABLE_X_PIN, HIGH);
+  digitalWrite(ENABLE_Y_PIN, LOW);
+  is_x_axis_enabled = false;
+
+  for (int i = 0; i < Y_LEN; i++) {
+    setSelectSignal(i); 
+
+    touch_bit = analog_to_digital(analogRead(OUTPUT_Y_PIN));
+    #ifdef DEBUG
+      Serial << "y = " << i + 1 << ": " << analogRead(OUTPUT_Y_PIN) << endl;
+      delay(DELAY_DEBUG);
+    #endif
+    bit_array[i] = touch_bit;
+
+    delayMicroseconds(DELAY_TIME_MICRO);
+  }
+}
+
+/************************************************************
+  @param pin : denotes which pin to turn on 
   Sets the select signals to turn on pair on that pin
 ************************************************************/
-void setSelectSignals(byte pin)
-{
-  if (pin > 7) return; // Exit if pin is out of scope
-  for (int i=0; i<3; i++)
-  {
-    if (pin & (1<<i))
-      digitalWrite(selectPins[i], HIGH);
-    else
-      digitalWrite(selectPins[i], LOW);
+void setSelectSignal(int pin) {
+  for (int i = 0; i < NUM_SELECT_PINS; i++) {
+    if (pin & (1 << i)) {
+      digitalWrite(SELECT_PINS[NUM_SELECT_PINS - 1 - i], HIGH);
+    } else {
+      digitalWrite(SELECT_PINS[NUM_SELECT_PINS - 1 - i], LOW);
+    }
   }
 }
 
@@ -205,9 +251,9 @@ void setSelectSignals(byte pin)
 void printBitArray()
 {
   Serial << "bit_array: ";
-  for (int i = 15; i >= 0; i--)
+  for (int i = 0; i < 72; i++)
   {
-    Serial << ((bit_array >> i) & 1);
+    Serial << bit_array[i];
   }
   Serial << endl;
 }
