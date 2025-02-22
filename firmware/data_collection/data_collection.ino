@@ -7,7 +7,6 @@
 
 const int X_LEN = 48;
 const int Y_LEN = 24;
-const int DELAY = 1000; // 1 second
 const int NUM_SELECT_PINS = 6;
 
 const int ENABLE_X_PIN = 23;             
@@ -50,9 +49,9 @@ void cycleX() {
   for (int i = 0; i < X_LEN; i++) {
     setSelectSignal(i); 
     touch_value = analogRead(OUTPUT_X_PIN); 
-    Serial << "x = " << i + 1<< ": " << touch_value << endl; 
-    delay(DELAY);
+    delayMicroseconds(180);
   }
+  
 }
 
 void cycleY() {
@@ -61,7 +60,6 @@ void cycleY() {
   for (int i = 0; i < Y_LEN; i++) {
     setSelectSignal(i); 
     touch_value = analogRead(OUTPUT_Y_PIN); 
-    // Serial << "y = " << i + 1<< ": " << touch_value << endl; 
     delayMicroseconds(180);
   }
 }

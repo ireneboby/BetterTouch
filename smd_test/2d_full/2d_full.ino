@@ -5,7 +5,7 @@
 #include <Streaming.h>
 #include <Adafruit_TinyUSB.h>
 
-//#define DEBUG
+#define DEBUG
 const int DELAY_DEBUG = 1000;
 
 /* BLE */
@@ -44,7 +44,7 @@ const int ENABLE_X_PIN = 23;
 const int ENABLE_Y_PIN = 24;  
 
 bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
-int bit_array = 0;                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
+bool bit_array[72] = {0};                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
 bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
 /****************************************************************************/
 
@@ -115,13 +115,11 @@ void loop()
   cycleX();   
   cycleY();
 
-  #ifdef DEBUG
-    printBitArray(); 
-  #endif
+  printBitArray(); 
 
   // If connection is active, send the count value over BLE
   if (connected) { 
-    customChar.notify16(connection_handle, bit_array);  // Notify the connected central with the current count
+    customChar.notify(connection_handle, bit_array, 72);  // Notify the connected central with the current count
   }
 }
 
@@ -176,7 +174,7 @@ void cycleX()
       Serial << "x = " << i + 1 << ": " << analogRead(OUTPUT_X_PIN) << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array = (bit_array << 1) | touch_bit;
+    bit_array[i + Y_LEN] = touch_bit; 
 
     delayMicroseconds(DELAY_TIME_MICRO);
   }
@@ -199,7 +197,7 @@ void cycleY()
       Serial << "y = " << i + 1 << ": " << analogRead(OUTPUT_Y_PIN) << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array = (bit_array << 1) | touch_bit;
+    bit_array[i] = touch_bit;
 
     delayMicroseconds(DELAY_TIME_MICRO);
   }
@@ -225,9 +223,9 @@ void setSelectSignal(int pin) {
 void printBitArray()
 {
   Serial << "bit_array: ";
-  for (int i = 72; i >= 0; i--)
+  for (int i = 0; i < 72; i++)
   {
-    Serial << ((bit_array >> i) & 1);
+    Serial << bit_array[i];
   }
   Serial << endl;
 }
