@@ -26,6 +26,7 @@ Y_MIN = 145
 Y_MAX = 700
 #X_PIXELS, Y_PIXELS = pyautogui.size()
 
+
 def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid."""
 
@@ -39,6 +40,7 @@ def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     if any(x_bit_array) != any(y_bit_array):
         return None
     
+    print("".join(x_bit_array), "".join(y_bit_array))
     return x_bit_array, y_bit_array
 
 def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
