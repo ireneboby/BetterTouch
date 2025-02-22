@@ -8,6 +8,9 @@
 #define DEBUG
 const int DELAY_DEBUG = 1000;
 
+#define DATA_COLLECTION_MODE
+const int DATA_MODE_DELAY = 5000;
+
 /* BLE */
 /****************************************************************************/
 BLEDfu  bledfu;  // OTA DFU service
@@ -112,6 +115,13 @@ void startAdv(void)
 
 void loop()
 {
+  #ifdef DATA_COLLECTION_MODE
+    unsigned long start_time = micros();
+    unsigned long cycling_time = 0;
+    unsigned long ble_latency = 0;
+    unsigned long refresh_time = 0
+  #endif
+
   cycleX();   
   cycleY();
 
@@ -119,10 +129,25 @@ void loop()
     printBitArray(); 
   #endif
 
+  #ifdef DATA_COLLECTION_MODE
+    cycling_time = micros() - start_time;
+  #endif
+
   // If connection is active, send the count value over BLE
   if (connected) { 
     customChar.notify16(connection_handle, bit_array);  // Notify the connected central with the current count
   }
+  #ifdef DATA_COLLECTION_MODE
+    ble_latency = micros() - cycling_time;
+  #endif
+
+  #ifdef DATA_COLLECTION_MODE
+    refresh_time = micros() - start_time;
+    Serial << "Cycling time: " << cycling_time << " microseconds." << endl;
+    Serial << "Bluetooth sending array latency: " << ble_latency << " microseconds." << endl;
+    Serial << "Refresh time: " << refresh_time << " microseconds." << endl;
+    delay(DATA_MODE_DELAY);
+  #endif
 }
 
 // callback invoked when central connects
