@@ -2,8 +2,9 @@ import asyncio
 from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
-from statistics import mode
 from typing import Optional
+
+DEBUG_MODE = True
 
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
@@ -20,27 +21,27 @@ TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 N = 48
 M = 24
 
-X_MIN = 25
-X_MAX = 1050
-Y_MIN = 145
-Y_MAX = 700
-#X_PIXELS, Y_PIXELS = pyautogui.size()
-
+X_MIN = 0
+Y_MIN = 0
+X_MAX, Y_MAX = pyautogui.size()
 
 def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid."""
 
-    # get the x (horizontal) coordinate
-    y_bit_array = [data >> i & 1 for i in range(N-1, -1, -1)]
+    x_bit_array = []
+    y_bit_array = []
 
-    # get the y (vertical) coordinate
-    x_bit_array = [data >> i & 1 for i in range(N+M-1, N-1, -1)]
+    for j, byte in enumerate(data):
+        for i in range(7, -1, -1):
+            if j < 6:
+                x_bit_array.append(bool((byte >> i) & 1))
+            else:
+                y_bit_array.append(bool((byte >> i) & 1))
 
     # check validity of coordinates
     if any(x_bit_array) != any(y_bit_array):
         return None
     
-    print("".join(x_bit_array), "".join(y_bit_array))
     return x_bit_array, y_bit_array
 
 def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
@@ -136,8 +137,6 @@ async def _notification_handler(sender, data):
     global curr_state
     global window 
 
-    data = int.from_bytes(data, byteorder='little')
-
     # if len(window) == WINDOW_SIZE:
     #     tmp_var = data
     #     data = mode(window)
@@ -150,8 +149,9 @@ async def _notification_handler(sender, data):
     if not next_state is None:
         curr_state = next_state
 
-    if data != 0:
-        print(curr_state.__class__.__name__, data)
+    if DEBUG_MODE:
+        data_bits = ''.join(f'{byte:08b}' for byte in data)
+        print(curr_state, data_bits)
 
 async def main_ble():
     devices = await BleakScanner.discover()

@@ -5,10 +5,10 @@
 #include <Streaming.h>
 #include <Adafruit_TinyUSB.h>
 
-#define DEBUG
+//#define DEBUG
 const int DELAY_DEBUG = 1000;
 
-#define DATA_COLLECTION_MODE
+//#define DATA_COLLECTION_MODE
 const int DATA_MODE_DELAY = 5000;
 
 /* BLE */
@@ -28,11 +28,20 @@ bool connected = false;  // Flag to track if there is an active connection
 uint16_t connection_handle = 0;  // variable to store the connection handle
 /****************************************************************************/
 
+/* Grid constants */
+/****************************************************************************/
+const int X_LEN = 48;                         // total pairs on x axis
+const int Y_LEN = 24;                         // total pairs on y axis
+const int TOTAL_LEN = X_LEN + Y_LEN;          // total pairs overall
+const int BITS_PER_BYTE = 8;                  // number of bits per byte/char
+const int CHAR_LEN = TOTAL_LEN/BITS_PER_BYTE;  // total number of bytes of data
+/****************************************************************************/
+
 /* Frame Controls */
 /****************************************************************************/
 const int DELAY_TIME_MICRO = 180;
-const int THRESHOLD_X = 90;
-const int THRESHOLD_Y = 10;
+const int THRESHOLD_X = 50; // usually ~ 100
+const int THRESHOLD_Y = 10; // usually ~ 30
 
 // Output Pins
 const int OUTPUT_X_PIN = A0;
@@ -47,14 +56,9 @@ const int ENABLE_X_PIN = 23;
 const int ENABLE_Y_PIN = 24;  
 
 bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
-bool bit_array[72] = {0};                      // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
+bool bit_array[72] = {0};               // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
+char char_array[9] = {0};               // char array that we send to software 
 bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
-/****************************************************************************/
-
-/* Grid constants */
-/****************************************************************************/
-const int X_LEN = 48;                   // total pairs on x axis
-const int Y_LEN = 24;                   // total pairs on y axis
 /****************************************************************************/
 
 void setup()
@@ -126,9 +130,16 @@ void loop()
   cycleY();
   
   #ifdef DEBUG
-    printBitArray(); 
+  printBitArray(); 
   #endif
 
+  // 
+  for (int i = 0; i < CHAR_LEN; i++) {
+      char_array[i] = 0;
+      for (int j = 0; j < BITS_PER_BYTE; j++) {
+        char_array[i] |= bit_array[i*BITS_PER_BYTE + j] << (BITS_PER_BYTE - 1 - j);
+      }
+  }
 
   #ifdef DATA_COLLECTION_MODE
     cycling_time = micros() - start_time;
@@ -136,7 +147,7 @@ void loop()
 
   // If connection is active, send the count value over BLE
   if (connected) { 
-    customChar.notify(connection_handle, bit_array, 72);  // Notify the connected central with the current count
+    customChar.notify(connection_handle, char_array, CHAR_LEN);  // Notify the connected central with the current count
   }
   #ifdef DATA_COLLECTION_MODE
     ble_latency = micros() - start_time;
@@ -182,7 +193,11 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
   Return 1 if touch is detected on that pair based on mux input
 ************************************************************/
 bool analog_to_digital(uint16_t analog_input) {
-  return is_x_axis_enabled ? analog_input < THRESHOLD_X : analog_input < THRESHOLD_Y;
+  if (is_x_axis_enabled) {
+    return analog_input < THRESHOLD_X;
+  } else {
+    return analog_input < THRESHOLD_Y;
+  }
 }
 
 /************************************************************
@@ -202,7 +217,7 @@ void cycleX()
       Serial << "x = " << i + 1 << ": " << analogRead(OUTPUT_X_PIN) << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array[i + Y_LEN] = touch_bit; 
+    bit_array[i] = touch_bit; 
 
     delayMicroseconds(DELAY_TIME_MICRO);
   }
@@ -225,7 +240,7 @@ void cycleY()
       Serial << "y = " << i + 1 << ": " << analogRead(OUTPUT_Y_PIN) << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array[i] = touch_bit;
+    bit_array[i + X_LEN] = touch_bit;
 
     delayMicroseconds(DELAY_TIME_MICRO);
   }
@@ -256,4 +271,10 @@ void printBitArray()
     Serial << bit_array[i];
   }
   Serial << endl;
+
+  Serial << "char_array: ";
+  for (int i = 0; i < 9; i++) {
+    Serial << (int)char_array[i] << ' ';
+  }
+  Serial << endl; 
 }
