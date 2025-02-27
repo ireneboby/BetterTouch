@@ -12,7 +12,7 @@ const int NUM_SELECT_PINS = 6;
 
 const int ENABLE_X_PIN = 23;             
 const int ENABLE_Y_PIN = 24;             
-const int SELECT_PINS[NUM_SELECT_PINS] = {5, 7, 9, 11, 12, 13}; // S2-2~5, S0-1~13
+const int SELECT_PINS[NUM_SELECT_PINS] = {5, 7, 9, 11, 12, 13}; // 5-9 L2 (Top Level Mux)
 const int OUTPUT_X_PIN = A0;
 const int OUTPUT_Y_PIN = 10; 
 
