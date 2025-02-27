@@ -130,7 +130,7 @@ void loop()
   cycleY();
   
   #ifdef DEBUG
-  printBitArray(); 
+    printBitArray(); 
   #endif
 
   // 
@@ -160,32 +160,6 @@ void loop()
     Serial << "Refresh time: " << refresh_time << " microseconds." << endl;
     delay(DATA_MODE_DELAY);
   #endif
-}
-
-// callback invoked when central connects
-void connect_callback(uint16_t conn_handle)
-{
-  connection_handle = conn_handle;
-  BLEConnection* connection = Bluefruit.Connection(conn_handle);
-  char central_name[32] = { 0 };
-  connection->getPeerName(central_name, sizeof(central_name));
-  Serial.print("Connected to ");
-  Serial.println(central_name);
-  connected = true;
-}
-
-/**
- * Callback invoked when a connection is dropped
- * @param conn_handle connection where this event happens
- * @param reason is a BLE_HCI_STATUS_CODE which can be found in ble_hci.h
- */
-void disconnect_callback(uint16_t conn_handle, uint8_t reason)
-{
-  (void) conn_handle;
-  (void) reason;
-  Serial.println();
-  Serial.print("Disconnected, reason = 0x"); Serial.println(reason, HEX);
-  connected = false;  // Stop counting when disconnected
 }
 
 /************************************************************
@@ -277,4 +251,30 @@ void printBitArray()
     Serial << (int)char_array[i] << ' ';
   }
   Serial << endl; 
+}
+
+// callback invoked when central connects
+void connect_callback(uint16_t conn_handle)
+{
+  connection_handle = conn_handle;
+  BLEConnection* connection = Bluefruit.Connection(conn_handle);
+  char central_name[32] = { 0 };
+  connection->getPeerName(central_name, sizeof(central_name));
+  Serial.print("Connected to ");
+  Serial.println(central_name);
+  connected = true;
+}
+
+/**
+ * Callback invoked when a connection is dropped
+ * @param conn_handle connection where this event happens
+ * @param reason is a BLE_HCI_STATUS_CODE which can be found in ble_hci.h
+ */
+void disconnect_callback(uint16_t conn_handle, uint8_t reason)
+{
+  (void) conn_handle;
+  (void) reason;
+  Serial.println();
+  Serial.print("Disconnected, reason = 0x"); Serial.println(reason, HEX);
+  connected = false;  // Stop counting when disconnected
 }
