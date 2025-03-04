@@ -4,6 +4,8 @@ import pyautogui
 import serial
 from typing import Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime
+import os
 
 DEBUG_MODE = True
 
@@ -32,16 +34,16 @@ class LocationSet:
 
     Attributes:
         x ([Tuple[int, Optional[int]]): 
-            A tuple containing one or two x-values. 
-            - Example: (x1, x2) or (x1, None).
+            A tuple containing one to three x-values. 
+            - Example: (x1, x2, x3), (x1, x2, None) or (x1, None).
     
         y (Tuple[int, Optional[int]]): 
-            A tuple containing one or two y-values. 
-            - Example: (y1, y2) or (y1, None).
+            A tuple containing one to three y-values. 
+            - Example: (y1, y2, y3), (y1, y2, None) or (y1, None).
     """
 
-    x: Tuple[int, Optional[int]]
-    y: Tuple[int, Optional[int]]
+    x: Tuple[int, Optional[int], Optional[int]]
+    y: Tuple[int, Optional[int], Optional[int]]
 
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid.
@@ -98,7 +100,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         
         locs = []
         
-        # TODO make sure the averaging is okay 
+        # TODO make sure the averaging is okay, do we need to check len of locs
         i = 0
         while i < len(bits):
             if i + 1 < len(bits) and bits[i + 1] == bits[i] + 1:  # Adjacent "on" bits
@@ -145,10 +147,20 @@ class UntouchedState(ScreenState):
         if coord is None:
             return None
         
-        if coord.x[1] and coord.y[1]:
-            return MultiTouchWaitState(coord)
+        # three finger touch, take a screenshot and return
+        if len(coord.x) > 2 and len(coord.y) > 2: 
+            img = pyautogui.screenshot()
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+            filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+            screenshot_path = os.path.join(desktop_path, filename)
+            img.save(screenshot_path)
+            return None
+
+        # two fingers detected
+        if len(coord.x) > 1 and len(coord.y) > 1:
+            return TwoFingerWaitState(coord)
         
-        # if touch, press mouse "down"
+        # single finger detected, press mouse "down"
         pyautogui.mouseDown(coord[0], coord[1], _pause=False)
         return SingleTouchState(coord[0], coord[1])
 
@@ -184,8 +196,8 @@ class SingleTouchState(ScreenState):
         self.prev_coord = coord
         return None
     
-class MultiTouchWaitState(ScreenState):
-    """State representing the initial detection of multi touch."""
+class TwoFingerWaitState(ScreenState):
+    """State representing the initial detection of two finger touch."""
 
     prev_locs: LocationSet
 
@@ -240,7 +252,7 @@ class MultiTouchWaitState(ScreenState):
         return UntouchedState()
 
 class ScrollState(ScreenState):
-    """State representing single-finger touch."""
+    """State representing scrolling the screen with two fingers."""
 
     prev_y_avg: int
 
