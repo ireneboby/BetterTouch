@@ -2,7 +2,8 @@ import asyncio
 from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
-from typing import Optional
+from typing import Optional, Tuple
+from dataclasses import dataclass
 
 DEBUG_MODE = True
 
@@ -24,6 +25,23 @@ M = 24
 X_MIN = 0
 Y_MIN = 0
 X_MAX, Y_MAX = pyautogui.size()
+
+@dataclass 
+class LocationSet: 
+    """A class to represent x and y coordinates
+
+    Attributes:
+        x ([Tuple[int, Optional[int]]): 
+            A tuple containing one or two x-values. 
+            - Example: (x1, x2) or (x1, None).
+    
+        y (Tuple[int, Optional[int]]): 
+            A tuple containing one or two y-values. 
+            - Example: (y1, y2) or (y1, None).
+    """
+
+    x: Tuple[int, Optional[int]]
+    y: Tuple[int, Optional[int]]
 
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid.
@@ -59,34 +77,53 @@ def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     
     return x_bit_array, y_bit_array
 
-def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
-        """Converts bit arrays into coordinates of the touch. Returns None if no touch.
+def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[LocationSet]:
+    """Converts bit arrays into coordinates of the touch. 
+    
+    Params: 
+        x_bit_array: In order of left to right i.e. first element corresponds to the left-most section of the screen.
+        y_bit_array: In order of top to bottom i.e. first element corresponds to the top-most section of the screen.
+    
+    Returns:
+        None if no touch.
+        CoordinateSet with either a single x and y value for a single touch or two x values and two y values.
+    """
+
+    def get_coordinates(bit_array: list[bool], max_value: int, min_value: int) -> Optional[list[int]]:
+        """Helper function to determine x or y coordinates."""
+        bits = [i for i, bit in enumerate(bit_array) if bit]
         
-        Params: 
-            x_bit_array: In order of left to right i.e. first element corresponds to left-most section of the screen.
-            y_bit_array: In order of top to bottom i.e. first element corresponds to top-most section of the screen.
-        """
-
-        x_index = 0
-        x_index_count = 0
-        for i, bit in enumerate(x_bit_array):
-            if bit:
-                x_index_count += 1
-                x_index += i
-        if x_index_count == 0:
+        if len(bits) == 0:
             return None
-        x_coord = round((x_index/x_index_count/N)*(X_MAX-X_MIN) + X_MIN)
+        
+        locs = []
+        
+        i = 0
+        while i < len(bits):
+            if i + 1 < len(bits) and bits[i + 1] == bits[i] + 1:  # Adjacent "on" bits
+                # Average the two adjacent "on" bits
+                avg_index = (bits[i] + bits[i + 1]) / 2
+                locs.append(round((avg_index / len(bits)) * (max_value - min_value) + min_value))
+                i += 2  
+            else:
+                locs.append(round((bits[i] / len(bits)) * (max_value - min_value) + min_value))
+                i += 1  
+            
+        return locs
 
-        y_coord = None
-        y_index = 0
-        y_index_count = 0
-        for i, bit in enumerate(y_bit_array):
-            if bit:
-                y_index_count += 1
-                y_index += i
-        y_coord = round((y_index/y_index_count/M)*(Y_MAX-Y_MIN) + Y_MIN)
+    # Get x coordinates
+    x_coords = get_coordinates(x_bit_array, X_MAX, X_MIN)
+    if x_coords is None:
+        return None
 
-        return x_coord, y_coord
+    # Get y coordinates
+    y_coords = get_coordinates(y_bit_array, Y_MAX, Y_MIN)
+    if y_coords is None:
+        return None
+
+    # Return the coordinates as a CoordinateSet
+    return LocationSet(x=x_coords, y=y_coords)
+
 
 class ScreenState(object):
     def on_event(self, event: bytearray):
@@ -107,6 +144,9 @@ class UntouchedState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             return None
+        
+        if coord.x[1] and coord.y[1]:
+            return MultiTouchState(coord)
         
         # if touch, press mouse "down"
         pyautogui.mouseDown(coord[0], coord[1], _pause=False)
@@ -138,6 +178,40 @@ class SingleTouchState(ScreenState):
             pyautogui.moveTo(coord[0], coord[1], _pause=False)
             self.prev_coord = coord
         return None
+    
+class MultiTouchState(ScreenState):
+    """State representing the initial detection of multi touch."""
+
+    prev_locs: LocationSet
+
+    def __init__(self, start_locs: LocationSet):
+        self.prev_locs = start_locs
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+
+        # if invalid data, do nothing
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+
+        # if no touch, return to untouched state
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            return UntouchedState()
+    
+        # if touch, find new area and determine whether zoom in or out 
+        prev_area = abs(self.prev_locs.x[1] - self.prev_locs.x[0]) * abs(self.prev_locs.y[1] - self.prev_locs.y[0])
+        curr_area = abs(coord.x[1] - coord.x[0]) * abs(coord.y[1] - coord.y[0])
+        if curr_area < prev_area:
+            pyautogui.keyDown('ctrl') 
+            pyautogui.press('-')     
+            pyautogui.keyUp('ctrl')
+        else:
+            pyautogui.keyDown('ctrl')
+            pyautogui.press('+')
+            pyautogui.keyUp('ctrl')
+        
+        return UntouchedState()
 
 async def _notification_handler(sender, data):
     global curr_state
