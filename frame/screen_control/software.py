@@ -98,6 +98,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         
         locs = []
         
+        # TODO make sure the averaging is okay 
         i = 0
         while i < len(bits):
             if i + 1 < len(bits) and bits[i + 1] == bits[i] + 1:  # Adjacent "on" bits
@@ -108,7 +109,6 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
             else:
                 locs.append(round((bits[i] / len(bits)) * (max_value - min_value) + min_value))
                 i += 1  
-            
         return locs
 
     # Get x coordinates
@@ -146,7 +146,7 @@ class UntouchedState(ScreenState):
             return None
         
         if coord.x[1] and coord.y[1]:
-            return MultiTouchState(coord)
+            return MultiTouchWaitState(coord)
         
         # if touch, press mouse "down"
         pyautogui.mouseDown(coord[0], coord[1], _pause=False)
@@ -179,7 +179,7 @@ class SingleTouchState(ScreenState):
             self.prev_coord = coord
         return None
     
-class MultiTouchState(ScreenState):
+class MultiTouchWaitState(ScreenState):
     """State representing the initial detection of multi touch."""
 
     prev_locs: LocationSet
@@ -198,8 +198,29 @@ class MultiTouchState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             return UntouchedState()
+        
+        prev_x_avg = (self.prev_locs.x[0] + self.prev_locs.x[1]) // 2
+        curr_x_avg = (coord.x[0] + coord.x[1]) // 2
+
+        # if x is staying similar and y for both fingers is similar 
+        # TODO experiment with these threshold values 
+        if abs(prev_x_avg - curr_x_avg) <= 2 and abs(coord.y[0] - coord.y[1]) <= 2:
+
+            # check if y is increasing or decreasing
+            # TODO experiment with click amounts, check that comparing y in this way is okay 
+            prev_y_avg = (self.prev_locs.y[0] + self.prev_locs.y[0]) // 2
+            curr_y_avg = (coord.y[0] + coord.y[1]) // 2
+
+            # fingers moved down, scroll up
+            if prev_y_avg < curr_y_avg: 
+                pyautogui.scroll(3)
+            # fingers moved up, scroll down
+            else:
+                pyautogui.scroll(-3)  
+                
+            return ScrollState(curr_y_avg)
     
-        # if touch, find new area and determine whether zoom in or out 
+        # if touch and not scroll, find new area and determine whether zoom in or out 
         prev_area = abs(self.prev_locs.x[1] - self.prev_locs.x[0]) * abs(self.prev_locs.y[1] - self.prev_locs.y[0])
         curr_area = abs(coord.x[1] - coord.x[0]) * abs(coord.y[1] - coord.y[0])
         if curr_area < prev_area:
@@ -213,6 +234,38 @@ class MultiTouchState(ScreenState):
         
         return UntouchedState()
 
+class ScrollState(ScreenState):
+    """State representing single-finger touch."""
+
+    prev_y_avg: int
+
+    def __init__(self, avg_y: int):
+        self.prev_y_avg = avg_y
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+
+        # if invalid data, do nothing
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+        
+        # if no touch, return to untouched
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            return UntouchedState()
+    
+        # if scroll continued
+        curr_y_avg = (coord.y[0] + coord.y[1]) // 2
+        if curr_y_avg != self.prev_y_avg:
+            # fingers moved down, scroll up
+            if self.prev_y_avg < curr_y_avg: 
+                pyautogui.scroll(3)
+            # fingers moved up, scroll down
+            else:
+                pyautogui.scroll(-3)  
+            self.prev_y_avg = curr_y_avg 
+        return None
+    
 async def _notification_handler(sender, data):
     global curr_state
     global window 
