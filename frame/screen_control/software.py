@@ -6,34 +6,49 @@ from typing import Optional
 
 DEBUG_MODE = True
 
+# PyAutoGUI settings
 pyautogui.PAUSE = 2.5
 pyautogui.FAILSAFE = True
 
-# Define the custom service and characteristic UUIDs
+# Bluetooth Connection Settings
 CUSTOM_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
 CUSTOM_CHAR_UUID = "00005678-0000-1000-8000-00805f9b34fb"
-
 COM_PORT = 'COM7'                       # for Windows
 # COM_PORT = '/dev/cu.usbmodem14201'    # for MacOS
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 
+# Frame Constants
 N = 48
 M = 24
-
 X_MIN = 0
 Y_MIN = 0
 X_MAX, Y_MAX = pyautogui.size()
 
-def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
-    """Converts recevied data into bit arrays. Returns None if data is invalid."""
+def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
+    """Converts recevied data into bit arrays. Returns None if data is invalid.
+
+    Params:
+        data: 
+            Array of bytes with each bit corresponding to a photodiode-LED pair. 
+            1 represents that an interception has been detected. 
+            Order of bytes and bits correspond to left -> right for x-axis and top -> bottom for y-axis. 
+            This means the first byte in the array corresponds to the left-most section of the screen,
+            and the MSB corresponds to the left-most pixel of that section of the screen. 
+            i.e. [00000100, 00000000, ..., 00000000, 01000000].
+
+    Returns: 
+        None for invalid data.
+        (x_bit_array, y_bit_array) in order of left -> right for x and top -> bottom for y. 
+        i.e. the first element in x_bit_array corresponds to the left-most section of the screen. 
+    """
 
     x_bit_array = []
     y_bit_array = []
 
     for j, byte in enumerate(data):
-        for i in range(7, -1, -1):
-            if j < 6:
+        for i in range(7, -1, -1): # extract in order from MSB to LSB 
+            if j < 6: # first six bytes (6 bytes * 8 bits/byte = 48 bits) belong to x-axis
                 x_bit_array.append(bool((byte >> i) & 1))
             else:
                 y_bit_array.append(bool((byte >> i) & 1))
@@ -45,7 +60,12 @@ def data_parsing(data: int) -> Optional[tuple[list[bool], list[bool]]]:
     return x_bit_array, y_bit_array
 
 def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int]]:
-        """Converts bit arrays into coordinates of the touch. Returns None if no touch."""
+        """Converts bit arrays into coordinates of the touch. Returns None if no touch.
+        
+        Params: 
+            x_bit_array: In order of left to right i.e. first element corresponds to left-most section of the screen.
+            y_bit_array: In order of top to bottom i.e. first element corresponds to top-most section of the screen.
+        """
 
         x_index = 0
         x_index_count = 0
@@ -69,12 +89,14 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         return x_coord, y_coord
 
 class ScreenState(object):
-    def on_event(self, event: int):
+    def on_event(self, event: bytearray):
+        """Handling when data from microcontroller has been sent to software."""
         raise NotImplementedError
 
 class UntouchedState(ScreenState):
+    """State representing no touch."""
 
-    def on_event(self, event: int) -> Optional[ScreenState]:
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
 
         # if invalid data, do nothing
         bit_arrays = data_parsing(event)
@@ -91,13 +113,14 @@ class UntouchedState(ScreenState):
         return SingleTouchState(coord[0], coord[1])
 
 class SingleTouchState(ScreenState):
+    """State representing single-finger touch."""
 
     prev_coord: tuple[int, int]
 
     def __init__(self, start_x: int, start_y: int):
         self.prev_coord = (start_x, start_y)
 
-    def on_event(self, event: int) -> Optional[ScreenState]:
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
 
         # if invalid data, do nothing
         bit_arrays = data_parsing(event)
@@ -116,34 +139,9 @@ class SingleTouchState(ScreenState):
             self.prev_coord = coord
         return None
 
-curr_state = UntouchedState()
-window = []
-WINDOW_SIZE = 10
-
-def main_serial():
-    port = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
-    global curr_state
-    
-    while True:
-        data = port.readline().decode().strip()
-        if data is None:
-            continue
-        
-        next_state = curr_state.on_event(int(data))
-        if not next_state is None:
-            curr_state = next_state
-
 async def _notification_handler(sender, data):
     global curr_state
     global window 
-
-    # if len(window) == WINDOW_SIZE:
-    #     tmp_var = data
-    #     data = mode(window)
-    #     window = [tmp_var]
-    # else:
-    #     window.append(data)
-    #     return
     
     next_state = curr_state.on_event(data)
     if not next_state is None:
@@ -154,6 +152,7 @@ async def _notification_handler(sender, data):
         print(curr_state, data_bits)
 
 async def main_ble():
+    """Handles data communication over bluetooth."""
     devices = await BleakScanner.discover()
 
     # Find the device advertising the custom service
@@ -187,7 +186,21 @@ async def main_ble():
         except KeyboardInterrupt:
             print("Program interrupted")
         
+def main_serial():
+    """Handles data communication serially."""
+
+    port = serial.Serial(COM_PORT, BAUD_RATE, timeout=TIMEOUT)
+    global curr_state
+    
+    while True:
+        data = port.readline().decode().strip()
+        if data is None:
+            continue
+        
+        next_state = curr_state.on_event(int(data))
+        if not next_state is None:
+            curr_state = next_state
+
 
 if __name__ == "__main__":
-    #main_serial()
     asyncio.run(main_ble())
