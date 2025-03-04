@@ -57,7 +57,7 @@ const int ENABLE_Y_PIN = 24;
 
 bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
 bool bit_array[72] = {0};               // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
-char char_array[9] = {0};               // char array that we send to software 
+char char_array[9] = {0};               // char array that we send to software (ordered left-right, top-bottom)
 bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
 /****************************************************************************/
 
@@ -81,40 +81,6 @@ void setup()
   // Set up bluetooth and advertise presence of frame
   bleSetup();
   startAdv();
-}
-
-void bleSetup() 
-{
-  Bluefruit.autoConnLed(true);
-  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
-  Bluefruit.begin();
-  Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
-  //Bluefruit.setName(getMcuUniqueID()); // useful testing with multiple central connections
-  Bluefruit.Periph.setConnectCallback(connect_callback);
-  Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
-  bledfu.begin();
-  bledis.setManufacturer("Adafruit Industries");
-  bledis.setModel("Bluefruit ItsyBitsy");
-  bledis.begin();
-
-  bleuart.begin();
-  blebas.begin();
-  blebas.write(100);
-  customService.begin();
-  customChar.begin();
-}
-
-void startAdv(void)
-{
-  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
-  Bluefruit.Advertising.addService(bleuart);
-  Bluefruit.Advertising.addService(customService);
-  Bluefruit.ScanResponse.addName();
-  Bluefruit.Advertising.restartOnDisconnect(true);
-  Bluefruit.Advertising.setInterval(32, 244);    // in unit of 0.625 ms
-  Bluefruit.Advertising.setFastTimeout(30);      // number of seconds in fast mode
-  Bluefruit.Advertising.start(0);                // 0 = Don't stop advertising after n seconds  
 }
 
 void loop()
@@ -252,6 +218,45 @@ void printBitArray()
   }
   Serial << endl; 
 }
+
+/************************************************************
+  Functions related to Bluetooth connection
+************************************************************/
+
+void bleSetup() 
+{
+  Bluefruit.autoConnLed(true);
+  Bluefruit.configPrphBandwidth(BANDWIDTH_MAX);
+  Bluefruit.begin();
+  Bluefruit.setTxPower(4);    // Check bluefruit.h for supported values
+  //Bluefruit.setName(getMcuUniqueID()); // useful testing with multiple central connections
+  Bluefruit.Periph.setConnectCallback(connect_callback);
+  Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
+  bledfu.begin();
+  bledis.setManufacturer("Adafruit Industries");
+  bledis.setModel("Bluefruit ItsyBitsy");
+  bledis.begin();
+
+  bleuart.begin();
+  blebas.begin();
+  blebas.write(100);
+  customService.begin();
+  customChar.begin();
+}
+
+void startAdv(void)
+{
+  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
+  Bluefruit.Advertising.addTxPower();
+  Bluefruit.Advertising.addService(bleuart);
+  Bluefruit.Advertising.addService(customService);
+  Bluefruit.ScanResponse.addName();
+  Bluefruit.Advertising.restartOnDisconnect(true);
+  Bluefruit.Advertising.setInterval(32, 244);    // in unit of 0.625 ms
+  Bluefruit.Advertising.setFastTimeout(30);      // number of seconds in fast mode
+  Bluefruit.Advertising.start(0);                // 0 = Don't stop advertising after n seconds  
+}
+
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
