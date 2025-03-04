@@ -139,6 +139,8 @@ class SingleTouchState(ScreenState):
             self.prev_coord = coord
         return None
 
+curr_state = UntouchedState()
+
 async def _notification_handler(sender, data):
     global curr_state
     global window 
