@@ -172,11 +172,16 @@ class SingleTouchState(ScreenState):
         if coord is None:
             pyautogui.mouseUp(_pause=False)
             return UntouchedState()
-    
-        # if touch 
-        if coord[0] != self.prev_coord[0] or coord[1] != self.prev_coord[1]:
-            pyautogui.moveTo(coord[0], coord[1], _pause=False)
-            self.prev_coord = coord
+
+        # if touch staying same, right click
+        # TODO check if need a timer instead (i.e. are taps and holds actually distinguishable by only checking the prev value)
+        if coord[0] == self.prev_coord[0] and coord[1] == self.prev_coord[1]:   
+            pyautogui.click(x=coord[0], y=coord[1], button="right")
+            return UntouchedState()
+        
+        # moving touch 
+        pyautogui.moveTo(coord[0], coord[1], _pause=False)
+        self.prev_coord = coord
         return None
     
 class MultiTouchWaitState(ScreenState):
@@ -217,7 +222,7 @@ class MultiTouchWaitState(ScreenState):
             # fingers moved up, scroll down
             else:
                 pyautogui.scroll(-3)  
-                
+
             return ScrollState(curr_y_avg)
     
         # if touch and not scroll, find new area and determine whether zoom in or out 
