@@ -283,6 +283,8 @@ class ScrollState(ScreenState):
             self.prev_y_avg = curr_y_avg 
         return None
     
+curr_state = UntouchedState()
+    
 async def _notification_handler(sender, data):
     global curr_state
     global window 
