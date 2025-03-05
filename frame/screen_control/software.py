@@ -90,7 +90,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         y_coord = round((y_index/y_index_count/M)*(Y_MAX-Y_MIN) + Y_MIN)
 
         num_touches = 1
-        if x_index_count >= 6:
+        if x_index_count >= 4:
             num_touches = 3
         elif x_index_count >= 3:
             num_touches = 2
@@ -136,8 +136,8 @@ class TapState(ScreenState):
             return None
         
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if coord is None and self.prev_cords[-1][2] <= 2:
-            if self.prev_coords[-1][2]<=2:
+        if coord is None:
+            if self.prev_coords[-1][2] != None and self.prev_coords[-1][2]<=2:
                 pyautogui.click(x=self.prev_coords[-1][0], y=self.prev_coords[-1][1], button="left" if self.prev_coords[-1][2] == 1 else "right", _pause=False)
             else:
                 img = pyautogui.screenshot()
@@ -150,7 +150,7 @@ class TapState(ScreenState):
         if len(self.prev_coords) < self.window_size:
             self.prev_coords.append(coord)
             return None
-        elif coord[2] == 1:
+        elif coord[2] != None and coord[2] == 1:
             pyautogui.mouseDown(x=coord[0], y=coord[1], button="left", _pause=False,)
             return OneTouchDragState()
         else:
