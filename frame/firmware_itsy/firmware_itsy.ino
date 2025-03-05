@@ -39,7 +39,7 @@ const int CHAR_LEN = TOTAL_LEN/BITS_PER_BYTE;  // total number of bytes of data
 
 /* Frame Controls */
 /****************************************************************************/
-const int DELAY_TIME_MICRO = 180;
+const int DELAY_TIME_MICRO = 160;
 const int THRESHOLD_X = 50; // usually ~ 100
 const int THRESHOLD_Y = 10; // usually ~ 30
 
