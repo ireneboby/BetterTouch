@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import QueueFull, QueueEmpty
 from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
@@ -8,6 +9,7 @@ from datetime import datetime
 import os
 
 DEBUG_MODE = True
+IS_TWO_WAIT = False
 
 # PyAutoGUI settings
 pyautogui.PAUSE = 2.5
@@ -135,6 +137,7 @@ class ScreenState(object):
 
 class UntouchedState(ScreenState):
     """State representing no touch."""
+    IS_TWO_WAIT = False
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
 
@@ -242,6 +245,7 @@ class SingleTouchState(ScreenState):
     
 class TwoFingerWaitState(ScreenState):
     """State representing the initial detection of two finger touch."""
+    IS_TWO_WAIT = True
 
     prev_locs: LocationSet
 
@@ -249,6 +253,7 @@ class TwoFingerWaitState(ScreenState):
         self.prev_locs = start_locs
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
+        # TAKES LONG SO CLEAR QUEUE
 
         # if invalid data, do nothing
         bit_arrays = data_parsing(event)
@@ -290,12 +295,13 @@ class TwoFingerWaitState(ScreenState):
             
             # fingers moved down, scroll up
             if prev_y_avg < curr_y_avg: 
-                pyautogui.scroll(10)
+                pyautogui.scroll(1)
             # fingers moved up, scroll down
             else:
-                pyautogui.scroll(-10)  
+                pyautogui.scroll(-1)  
 
-            return UntouchedState()
+            self.prev_locs = coord
+            return None
     
         # if touch and not scroll, find new area and determine whether zoom in or out 
         prev_area = abs(self.prev_locs.x[1] - self.prev_locs.x[0]) * abs(self.prev_locs.y[1] - self.prev_locs.y[0])
@@ -304,8 +310,9 @@ class TwoFingerWaitState(ScreenState):
             pyautogui.hotKey('ctrl', '-')
         else:
             pyautogui.hotKey('ctrl', '+')
-        
-        return UntouchedState()
+
+        self.prev_locs = coord
+        return None
 
 class ScrollState(ScreenState):
     """State representing scrolling the screen with two fingers."""
@@ -340,18 +347,35 @@ class ScrollState(ScreenState):
         return None
     
 curr_state = UntouchedState()
+notif_queue = asyncio.Queue(1)
     
 async def _notification_handler(sender, data):
+    try:
+        if not IS_TWO_WAIT:
+            notif_queue.put_nowait(data)
+            asyncio.create_task(process_notifs())
+    except QueueFull:
+        print('Dropped notif')
+
+async def process_notifs():
     global curr_state
     global window 
-    
-    next_state = curr_state.on_event(data)
-    if not next_state is None:
-        curr_state = next_state
-
-    if DEBUG_MODE:
-        data_bits = ''.join(f'{byte:08b}' for byte in data)
-        print(curr_state, data_bits)
+    while True:
+        data = await notif_queue.get()
+        next_state = curr_state.on_event(data)
+        if not next_state is None:
+            curr_state = next_state
+        if DEBUG_MODE:
+            data_bits = ''.join(f'{byte:08b}' for byte in data)
+            print(curr_state, data_bits)
+        notif_queue.task_done()
+def clear_queue():
+    while not notif_queue.empty():
+        try:
+            notif_queue.get_nowait()
+            notif_queue.task_done()
+        except asyncio.QueueEmpty:
+            break
 
 async def main_ble():
     """Handles data communication over bluetooth."""
@@ -384,9 +408,10 @@ async def main_ble():
 
         try:
             while True:
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.015)
         except KeyboardInterrupt:
-            print("Program interrupted")
+            await client.stop_notify(CUSTOM_CHAR_UUID)
+
         
 def main_serial():
     """Handles data communication serially."""
