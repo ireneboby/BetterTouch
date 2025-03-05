@@ -27,8 +27,6 @@ X_MIN = 0
 Y_MIN = 0
 X_MAX, Y_MAX = pyautogui.size()
 
-is_os_executing = False # Global variable to track of pyautogui call is in progress
-
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid.
 
@@ -125,8 +123,6 @@ class TapState(ScreenState):
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
-        
-        global is_os_executing
 
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
@@ -167,14 +163,11 @@ class OneTouchDragState(ScreenState):
 
 class TwoFingerTouchState(ScreenState):
     """Handles two-finger gestures (scroll & zoom)."""
-    prev_coords = list
-    window = 5
-    
+
     def __init__(self, coord):
-        self.prev_coords = [coord]
+        self.prev_coord = coord
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
-        global is_os_executing
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
@@ -186,30 +179,22 @@ class TwoFingerTouchState(ScreenState):
         x, y, num_touches = coord
         if num_touches == 1:
             return TapState(coord)
-        prev_x, prev_y, _ = self.prev_coords[0]
+        prev_x, prev_y, _ = self.prev_coord
 
-        # is_os_executing = True
+        # Detect gesture type (scrolling or zooming)
+        if abs(y - prev_y) > 3:
+            scroll_amount = (y - prev_y) // 8
+            pyautogui.scroll(scroll_amount, _pause=False)
+        elif abs(x - prev_x) > 20:
+            zoom_factor = 1.1 if x > prev_x else 0.9
+            pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
 
-        try:
-            # Detect gesture type (scrolling or zooming)
-            if abs(y - prev_y) > 3:
-                scroll_amount = (y - prev_y) // 4
-                pyautogui.scroll(scroll_amount, _pause=False)
-            elif abs(x - prev_x) > 20:
-                zoom_factor = 1.1 if x > prev_x else 0.9
-                pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
-        finally:
-            is_os_executing = False
-        if len(self.prev_coords) >= window:
-            self.prev_coords.pop(0)
-        self.prev_coords.append(coord)
+        self.prev_coord = coord
         return None
 
 curr_state = UntouchedState()
 
 async def _notification_handler(sender, data):
-    if is_os_executing:  # Ignore new events while an action is happening
-        return
     global curr_state
     global window 
     
@@ -252,7 +237,7 @@ async def main_ble():
 
         try:
             while True:
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.015)
         except KeyboardInterrupt:
             print("Program interrupted")
         
