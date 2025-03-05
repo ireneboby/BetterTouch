@@ -27,6 +27,8 @@ X_MIN = 0
 Y_MIN = 0
 X_MAX, Y_MAX = pyautogui.size()
 
+is_os_executing = False # Global variable to track of pyautogui call is in progress
+
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid.
 
@@ -64,22 +66,28 @@ def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
 def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int, int]]:
     """Converts bit arrays into touch coordinates and detects number of touches."""
     x_index = sum(i for i, bit in enumerate(x_bit_array) if bit)
+    x_indices = [i for i, bit in enumerate(x_bit_array) if bit]
     x_count = sum(x_bit_array)
     if x_count == 0:
         return None
-
     x_coord = round((x_index / x_count / N) * (X_MAX - X_MIN) + X_MIN)
 
     y_index = sum(i for i, bit in enumerate(y_bit_array) if bit)
     y_count = sum(y_bit_array)
+    if y_count == 0:
+        return None
     y_coord = round((y_index / y_count / M) * (Y_MAX - Y_MIN) + Y_MIN)
 
     # Determine number of touches
     num_touches = 1
-    if x_count >= 4:
-        num_touches = 3
-    elif x_count >= 3:
-        num_touches = 2
+    for i in range(1, len(x_indices)):
+        if x_indices[i] != (x_indices[i-1] + 1):
+            num_touches += 1
+
+    # if x_count >= 6:
+    #     num_touches = 3
+    # elif x_count >= 3:
+    #     num_touches = 2
 
     return x_coord, y_coord, num_touches
 
@@ -117,6 +125,8 @@ class TapState(ScreenState):
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
+        
+        global is_os_executing
 
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
@@ -157,11 +167,14 @@ class OneTouchDragState(ScreenState):
 
 class TwoFingerTouchState(ScreenState):
     """Handles two-finger gestures (scroll & zoom)."""
-
+    prev_coords = list
+    window = 5
+    
     def __init__(self, coord):
-        self.prev_coord = coord
+        self.prev_coords = [coord]
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
+        global is_os_executing
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
@@ -170,26 +183,33 @@ class TwoFingerTouchState(ScreenState):
         if coord is None:
             return UntouchedState()
 
-        prev_x, prev_y, _ = self.prev_coord
         x, y, num_touches = coord
-
-        if num_touches < 2:
+        if num_touches == 1:
             return TapState(coord)
+        prev_x, prev_y, _ = self.prev_coords[0]
 
-        # Detect gesture type (scrolling or zooming)
-        if abs(y - prev_y) > 5:
-            scroll_amount = (y - prev_y) // 2
-            pyautogui.scroll(-scroll_amount)
-        elif abs(x - prev_x) > 3:
-            zoom_factor = 1.1 if x > prev_x else 0.9
-            pyautogui.hotkey("ctrl", "+") if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-")
+        # is_os_executing = True
 
-        self.prev_coord = coord
+        try:
+            # Detect gesture type (scrolling or zooming)
+            if abs(y - prev_y) > 3:
+                scroll_amount = (y - prev_y) // 4
+                pyautogui.scroll(scroll_amount, _pause=False)
+            elif abs(x - prev_x) > 20:
+                zoom_factor = 1.1 if x > prev_x else 0.9
+                pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
+        finally:
+            is_os_executing = False
+        if len(self.prev_coords) >= window:
+            self.prev_coords.pop(0)
+        self.prev_coords.append(coord)
         return None
 
 curr_state = UntouchedState()
 
 async def _notification_handler(sender, data):
+    if is_os_executing:  # Ignore new events while an action is happening
+        return
     global curr_state
     global window 
     
