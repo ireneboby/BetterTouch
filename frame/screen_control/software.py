@@ -90,27 +90,28 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         None if no touch.
         CoordinateSet with either a single x and y value for a single touch or two x values and two y values.
     """
-
+    
     def get_coordinates(bit_array: list[bool], max_value: int, min_value: int) -> Optional[list[int]]:
-        """Helper function to determine x or y coordinates."""
-        bits = [i for i, bit in enumerate(bit_array) if bit]
-        
+        """Helper function to determine x or y coordinates based on the bit array."""
+        bits = [i for i, bit in enumerate(bit_array) if bit]  # Get indices of "on" bits
+
         if len(bits) == 0:
             return None
-        
+
+        if len(bits) <= 2:
+            # Average the locations if 2 or fewer "on" bits
+            avg_index = sum(bits) / len(bits)
+            return [round((avg_index / len(bit_array)) * (max_value - min_value) + min_value)]
+
+        # More than 2 "on" bits → capture the first "on" bit of each cluster
         locs = []
-        
-        # TODO make sure the averaging is okay, do we need to check len of locs
-        i = 0
-        while i < len(bits):
-            if i + 1 < len(bits) and bits[i + 1] == bits[i] + 1:  # Adjacent "on" bits
-                # Average the two adjacent "on" bits
-                avg_index = (bits[i] + bits[i + 1]) / 2
-                locs.append(round((avg_index / len(bits)) * (max_value - min_value) + min_value))
-                i += 2  
-            else:
-                locs.append(round((bits[i] / len(bits)) * (max_value - min_value) + min_value))
-                i += 1  
+        prev_bit = -2  # Initialize outside valid range
+
+        for bit in bits:
+            if bit != prev_bit + 1:  # Detects the start of a new group
+                locs.append(round((bit / len(bit_array)) * (max_value - min_value) + min_value))
+            prev_bit = bit  # Track previous bit location
+
         return locs
 
     # Get x coordinates
@@ -146,9 +147,9 @@ class UntouchedState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             return None
-        
+        """
         # three finger touch, take a screenshot and return
-        if len(coord.x) > 2 and len(coord.y) > 2: 
+        if len(coord.x) > 2 or len(coord.y) > 2: 
             img = pyautogui.screenshot()
             desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
             filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
@@ -157,12 +158,52 @@ class UntouchedState(ScreenState):
             return None
 
         # two fingers detected
-        if len(coord.x) > 1 and len(coord.y) > 1:
+        if len(coord.x) > 1 or len(coord.y) > 1:
+            return TwoFingerWaitState(coord)
+            """
+
+        return InitialTouchedState(coord)
+        
+class InitialTouchedState(ScreenState):
+    """State representing no touch."""
+
+    prev_coord: LocationSet
+
+    def __init__(self, start_locs: LocationSet):
+        self.prev_coord = start_locs
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+
+        # if invalid data, do nothing
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+
+        # if no touch, do nothing
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            return UntouchedState()
+        
+        """
+        # three finger touch, take a screenshot and return
+        if len(coord.x) > 2 or len(coord.y) > 2: 
+            img = pyautogui.screenshot()
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+            filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+            screenshot_path = os.path.join(desktop_path, filename)
+            img.save(screenshot_path)
+            return UntouchedState()
+        """
+        print(coord)
+        # two fingers detected
+        if len(coord.x) > 1 or len(coord.y) > 1:
             return TwoFingerWaitState(coord)
         
         # single finger detected, press mouse "down"
-        pyautogui.mouseDown(coord[0], coord[1], _pause=False)
-        return SingleTouchState(coord[0], coord[1])
+        pyautogui.mouseDown(coord.x[0], coord.y[0], _pause=False)
+        print("mouse down!!!!!!!!!!!!!!!!!!!!")
+        return SingleTouchState(coord.x[0], coord.y[0])
+
 
 class SingleTouchState(ScreenState):
     """State representing single-finger touch."""
@@ -181,18 +222,21 @@ class SingleTouchState(ScreenState):
         
         # if no touch, mouse button is now "up" and transition to new state
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        print(coord)
         if coord is None:
             pyautogui.mouseUp(_pause=False)
+            print("mouse up!!!!!!!!!!!!!!!!!!!!")
             return UntouchedState()
 
+        """
         # if touch staying same, right click
         # TODO check if need a timer instead (i.e. are taps and holds actually distinguishable by only checking the prev value)
-        if coord[0] == self.prev_coord[0] and coord[1] == self.prev_coord[1]:   
-            pyautogui.click(x=coord[0], y=coord[1], button="right")
-            return UntouchedState()
+        if coord.x[0] == self.prev_coord[0] and coord.y[0] == self.prev_coord[1]:   
+            pyautogui.click(x=coord.x[0], y=coord.y[0], button="right")
+            return UntouchedState() """
         
         # moving touch 
-        pyautogui.moveTo(coord[0], coord[1], _pause=False)
+        pyautogui.moveTo(coord.x[0], coord.y[0], _pause=False)
         self.prev_coord = coord
         return None
     
@@ -213,7 +257,7 @@ class TwoFingerWaitState(ScreenState):
 
         # if no touch, return to untouched state
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if coord is None:
+        if coord is None or len(coord.x) == 1 and len(coord.y) == 1:
             return UntouchedState()
         
         prev_x_avg = (self.prev_locs.x[0] + self.prev_locs.x[1]) // 2
@@ -241,13 +285,9 @@ class TwoFingerWaitState(ScreenState):
         prev_area = abs(self.prev_locs.x[1] - self.prev_locs.x[0]) * abs(self.prev_locs.y[1] - self.prev_locs.y[0])
         curr_area = abs(coord.x[1] - coord.x[0]) * abs(coord.y[1] - coord.y[0])
         if curr_area < prev_area:
-            pyautogui.keyDown('ctrl') 
-            pyautogui.press('-')     
-            pyautogui.keyUp('ctrl')
+            pyautogui.hotKey('ctrl', '-')
         else:
-            pyautogui.keyDown('ctrl')
-            pyautogui.press('+')
-            pyautogui.keyUp('ctrl')
+            pyautogui.hotKey('ctrl', '+')
         
         return UntouchedState()
 
