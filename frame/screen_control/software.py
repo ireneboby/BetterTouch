@@ -3,6 +3,8 @@ from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
 from typing import Optional
+from datetime import datetime
+import os
 
 DEBUG_MODE = True
 
@@ -59,33 +61,27 @@ def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     
     return x_bit_array, y_bit_array
 
-def find_touch_regions(bit_array):
-    """Finds up to two distinct touch regions in bit array."""
-    indices = [i for i, bit in enumerate(bit_array) if bit]
-    if not indices:
-        return None
-    if len(indices) > 1 and (indices[-1] - indices[0] > 3):  # Gap threshold
-        mid = len(indices) // 2
-        return [indices[:mid], indices[mid:]]
-    return [indices]
-
-def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[list[tuple[int, int]]]:
-    """Detects up to two touch points and returns their coordinates."""
-    x_regions = find_touch_regions(x_bit_array)
-    y_regions = find_touch_regions(y_bit_array)
-
-    if not x_regions or not y_regions:
+def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -> Optional[tuple[int, int, int]]:
+    """Converts bit arrays into touch coordinates and detects number of touches."""
+    x_index = sum(i for i, bit in enumerate(x_bit_array) if bit)
+    x_count = sum(x_bit_array)
+    if x_count == 0:
         return None
 
-    touches = []
-    for x_group, y_group in zip(x_regions, y_regions):
-        x_avg = sum(x_group) / len(x_group)
-        y_avg = sum(y_group) / len(y_group)
-        x_coord = round((x_avg / N) * (X_MAX - X_MIN) + X_MIN)
-        y_coord = round((y_avg / M) * (Y_MAX - Y_MIN) + Y_MIN)
-        touches.append((x_coord, y_coord))
+    x_coord = round((x_index / x_count / N) * (X_MAX - X_MIN) + X_MIN)
 
-    return touches if touches else None
+    y_index = sum(i for i, bit in enumerate(y_bit_array) if bit)
+    y_count = sum(y_bit_array)
+    y_coord = round((y_index / y_count / M) * (Y_MAX - Y_MIN) + Y_MIN)
+
+    # Determine number of touches
+    num_touches = 1
+    if x_count >= 4:
+        num_touches = 3
+    elif x_count >= 3:
+        num_touches = 2
+
+    return x_coord, y_coord, num_touches
 
 class ScreenState:
     def on_event(self, event: bytearray):
@@ -102,72 +98,93 @@ class UntouchedState(ScreenState):
         if bit_arrays is None:
             return None
 
-        touches = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if not touches:
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
             return None
 
-        if len(touches) == 1:
-            pyautogui.mouseDown(touches[0][0], touches[0][1], _pause=False)
-            return SingleTouchState(touches[0][0], touches[0][1])
-        elif len(touches) == 2:
-            return MultiTouchState(touches[0], touches[1])
+        return TapState(coord)
 
-        return None
+class TapState(ScreenState):
+    """Intermediate state to prevent misclassification of two-finger touches."""
 
-class SingleTouchState(ScreenState):
-    """Single-finger touch (click/drag)."""
+    prev_coords: list
+    window_size = 5
 
-    def __init__(self, start_x: int, start_y: int):
-        self.prev_coord = (start_x, start_y)
+    def __init__(self, coord):
+        self.prev_coords = [coord]
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
 
-        touches = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if not touches:
-            pyautogui.mouseUp(_pause=False)
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            last_touch = self.prev_coords[-1]
+            if last_touch[2] <= 2:
+                pyautogui.click(x=last_touch[0], y=last_touch[1], button="left" if last_touch[2] == 1 else "right", _pause=False)
+            else:
+                img = pyautogui.screenshot()
+                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+                filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                img.save(os.path.join(desktop_path, filename))
             return UntouchedState()
 
-        if touches[0] != self.prev_coord:
-            pyautogui.moveTo(touches[0][0], touches[0][1], _pause=False)
-            self.prev_coord = touches[0]
+        if len(self.prev_coords) < self.window_size:
+            self.prev_coords.append(coord)
+            return None
+        elif coord[2] == 1:
+            pyautogui.mouseDown(x=coord[0], y=coord[1], button="left", _pause=False)
+            return OneTouchDragState()
+        else:
+            return TwoFingerTouchState(coord)
 
+class OneTouchDragState(ScreenState):
+    """Single-finger drag (mouse down & move)."""
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            pyautogui.mouseUp(button="left", _pause=False)
+            return UntouchedState()
+
+        pyautogui.moveTo(x=coord[0], y=coord[1], _pause=False)
         return None
 
-class MultiTouchState(ScreenState):
+class TwoFingerTouchState(ScreenState):
     """Handles two-finger gestures (scroll & zoom)."""
 
-    def __init__(self, coord1: tuple[int, int], coord2: tuple[int, int]):
-        self.prev_coord1 = coord1
-        self.prev_coord2 = coord2
+    def __init__(self, coord):
+        self.prev_coord = coord
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
 
-        touches = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if not touches or len(touches) < 2:
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
             return UntouchedState()
 
-        coord1, coord2 = touches
+        prev_x, prev_y, _ = self.prev_coord
+        x, y, num_touches = coord
 
-        # Detect gesture type
-        y_diff_prev = abs(self.prev_coord1[1] - self.prev_coord2[1])
-        y_diff_now = abs(coord1[1] - coord2[1])
+        if num_touches < 2:
+            return TapState(coord)
 
-        if abs(coord1[1] - self.prev_coord1[1]) > 5 and abs(coord2[1] - self.prev_coord2[1]) > 5:
-            scroll_amount = (coord1[1] - self.prev_coord1[1]) // 2
-            pyautogui.scroll(-scroll_amount)  # Scroll
-
-        elif abs(y_diff_now - y_diff_prev) > 3:
-            zoom_factor = 1.1 if y_diff_now > y_diff_prev else 0.9
+        # Detect gesture type (scrolling or zooming)
+        if abs(y - prev_y) > 5:
+            scroll_amount = (y - prev_y) // 2
+            pyautogui.scroll(-scroll_amount)
+        elif abs(x - prev_x) > 3:
+            zoom_factor = 1.1 if x > prev_x else 0.9
             pyautogui.hotkey("ctrl", "+") if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-")
 
-        self.prev_coord1 = coord1
-        self.prev_coord2 = coord2
+        self.prev_coord = coord
         return None
 
 curr_state = UntouchedState()
