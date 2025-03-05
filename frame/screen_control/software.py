@@ -90,7 +90,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         None if no touch.
         CoordinateSet with either a single x and y value for a single touch or two x values and two y values.
     """
-    
+
     def get_coordinates(bit_array: list[bool], max_value: int, min_value: int) -> Optional[list[int]]:
         """Helper function to determine x or y coordinates based on the bit array."""
         bits = [i for i, bit in enumerate(bit_array) if bit]  # Get indices of "on" bits
@@ -260,26 +260,42 @@ class TwoFingerWaitState(ScreenState):
         if coord is None or len(coord.x) == 1 and len(coord.y) == 1:
             return UntouchedState()
         
-        prev_x_avg = (self.prev_locs.x[0] + self.prev_locs.x[1]) // 2
-        curr_x_avg = (coord.x[0] + coord.x[1]) // 2
+        if len(self.prev_locs.x) > 1:
+            prev_x_avg = (self.prev_locs.x[0] + self.prev_locs.x[1]) // 2
+        else:
+            prev_x_avg = self.prev_locs.x[0]
+        
+        if len(coord.x) > 1:
+            curr_x_avg = (coord.x[0] + coord.x[1]) // 2
+        else:
+            curr_x_avg = coord.x[0]
+  
 
         # if x is staying similar and y for both fingers is similar 
         # TODO experiment with these threshold values 
-        if abs(prev_x_avg - curr_x_avg) <= 2 and abs(coord.y[0] - coord.y[1]) <= 2:
+        if abs(prev_x_avg - curr_x_avg) <= 1 and len(coord.y) == 1:
+
+            if len(self.prev_locs.y) > 1:
+                prev_y_avg = (self.prev_locs.y[0] + self.prev_locs.y[1]) // 2
+            else:
+                prev_y_avg = self.prev_locs.y[0]
+            
+            if len(coord.y) > 1:
+                curr_y_avg = (coord.y[0] + coord.y[1]) // 2
+            else:
+                curr_y_avg = coord.y[0]
 
             # check if y is increasing or decreasing
             # TODO experiment with click amounts, check that comparing y in this way is okay 
-            prev_y_avg = (self.prev_locs.y[0] + self.prev_locs.y[0]) // 2
-            curr_y_avg = (coord.y[0] + coord.y[1]) // 2
-
+            
             # fingers moved down, scroll up
             if prev_y_avg < curr_y_avg: 
-                pyautogui.scroll(3)
+                pyautogui.scroll(10)
             # fingers moved up, scroll down
             else:
-                pyautogui.scroll(-3)  
+                pyautogui.scroll(-10)  
 
-            return ScrollState(curr_y_avg)
+            return UntouchedState()
     
         # if touch and not scroll, find new area and determine whether zoom in or out 
         prev_area = abs(self.prev_locs.x[1] - self.prev_locs.x[0]) * abs(self.prev_locs.y[1] - self.prev_locs.y[0])
