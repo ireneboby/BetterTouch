@@ -88,7 +88,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         if x_indices[i] != (x_indices[i-1] + 1):
             num_touches += 1
 
-    return x_coord, y_coord, num_touches
+    return x_coord, y_coord, num_touches, x_indices[0] - x_indices[-1]
 
 class ScreenState:
     def on_event(self, event: bytearray):
@@ -165,33 +165,42 @@ class OneTouchDragState(ScreenState):
 class TwoFingerTouchState(ScreenState):
     """Handles two-finger gestures (scroll & zoom)."""
 
+    zoomed_or_scrolled: bool
+
     def __init__(self, coord):
         self.prev_coord = coord
+        self.zoomed_or_scrolled = False
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
         bit_arrays = data_parsing(event)
         if bit_arrays is None:
             return None
+        
+        prev_x, prev_y, _, prev_diff_x = self.prev_coord
 
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
+            if not self.zoomed_or_scrolled:
+                pyautogui.click(x=prev_x, y=prev_y[1], button="left", _pause=False)
             return UntouchedState()
 
-        x, y, num_touches = coord
+        x, y, num_touches, diff_x = coord
         if num_touches == 1:
             return TapState(coord)
-        prev_x, prev_y, _ = self.prev_coord
 
         # Detect gesture type (scrolling or zooming)
         if abs(y - prev_y) > 3:
-            scroll_amount = (y - prev_y) // 8
+            scroll_amount = (y - prev_y) // 4
             pyautogui.scroll(scroll_amount, _pause=False)
-        elif abs(x - prev_x) > 10:
-            zoom_factor = 1.1 if x > prev_x else 0.9
+            self.zoomed_or_scrolled = True
+        elif abs(x - prev_x) > 15:
+            zoom_factor = 1.1 if prev_diff_x > diff_x else 0.9
+            self.zoomed_or_scrolled = True
             if platform.system() == "Windows":
                 pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
             elif platform.system() == "Darwin":
                 pyautogui.hotkey("command", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("command", "-", _pause=False)
+        
 
         self.prev_coord = coord
         return None
