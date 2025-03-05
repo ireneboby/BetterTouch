@@ -23,7 +23,7 @@ python -m pip install -r requirements.txt
 Create a virtual environment and activate it.
 
 ```
-python -m path/to/env
+python -m venv path/to/env
 source path/to/env/bin/activate
 ```
 
