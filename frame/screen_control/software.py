@@ -86,7 +86,11 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
                 y_index += i
         y_coord = round((y_index/y_index_count/M)*(Y_MAX-Y_MIN) + Y_MIN)
 
-        return x_coord, y_coord
+        num_touches = 1
+        if x_index_count >= 3:
+            num_touches = 2
+
+        return x_coord, y_coord, num_touches
 
 class ScreenState(object):
     def on_event(self, event: bytearray):
@@ -107,18 +111,41 @@ class UntouchedState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             return None
-        
-        # if touch, press mouse "down"
-        pyautogui.mouseDown(coord[0], coord[1], _pause=False)
-        return SingleTouchState(coord[0], coord[1])
 
-class SingleTouchState(ScreenState):
+        return TapState(coord)
+
+class TapState(ScreenState):
     """State representing single-finger touch."""
 
-    prev_coord: tuple[int, int]
+    prev_coords: list
+    window_size = 5
 
-    def __init__(self, start_x: int, start_y: int):
-        self.prev_coord = (start_x, start_y)
+    def __init__(self, coord):
+        self.prev_coords = [coord]
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+
+        # if invalid data, do nothing
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+        
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            pyautogui.click(x=self.prev_coords[-1][0], y=self.prev_coords[-1][1], button="left" if self.prev_coords[-1][2] == 1 else "right", _pause=False)
+            return UntouchedState()
+    
+        if len(self.prev_coords) < self.window_size:
+            self.prev_coords.append(coord)
+            return None
+        elif coord[2] == 1:
+            pyautogui.mouseDown(x=coord[0], y=coord[1], button="left", _pause=False,)
+            return OneTouchDragState()
+        else:
+            pyautogui.mouseDown(x=coord[0], y=coord[1], button="right", _pause=False)
+            return TwoTouchDragState()
+
+class OneTouchDragState(ScreenState):
 
     def on_event(self, event: bytearray) -> Optional[ScreenState]:
 
@@ -130,14 +157,30 @@ class SingleTouchState(ScreenState):
         # if no touch, mouse button is now "up" and transition to new state
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
-            pyautogui.mouseUp(_pause=False)
+            pyautogui.mouseUp(button="left", _pause=False)
             return UntouchedState()
-    
-        # if touch 
-        if coord[0] != self.prev_coord[0] or coord[1] != self.prev_coord[1]:
-            pyautogui.moveTo(coord[0], coord[1], _pause=False)
-            self.prev_coord = coord
+        
+        pyautogui.moveTo(x=coord[0], y=coord[1], _pause=False)
         return None
+
+class TwoTouchDragState(ScreenState):
+
+    def on_event(self, event: bytearray) -> Optional[ScreenState]:
+
+        # if invalid data, do nothing
+        bit_arrays = data_parsing(event)
+        if bit_arrays is None:
+            return None
+        
+        # if no touch, mouse button is now "up" and transition to new state
+        coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
+        if coord is None:
+            pyautogui.mouseUp(button="right", _pause=False)
+            return UntouchedState()
+        
+        pyautogui.moveTo(x=coord[0], y=coord[1], _pause=False)
+        return None
+
 
 curr_state = UntouchedState()
 
