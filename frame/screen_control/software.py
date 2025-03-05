@@ -3,6 +3,9 @@ from bleak import BleakScanner, BleakClient
 import pyautogui 
 import serial
 from typing import Optional
+from datetime import datetime
+import os
+
 
 DEBUG_MODE = True
 
@@ -87,7 +90,9 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
         y_coord = round((y_index/y_index_count/M)*(Y_MAX-Y_MIN) + Y_MIN)
 
         num_touches = 1
-        if x_index_count >= 3:
+        if x_index_count >= 6:
+            num_touches = 3
+        elif x_index_count >= 3:
             num_touches = 2
 
         return x_coord, y_coord, num_touches
@@ -131,10 +136,17 @@ class TapState(ScreenState):
             return None
         
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
-        if coord is None:
-            pyautogui.click(x=self.prev_coords[-1][0], y=self.prev_coords[-1][1], button="left" if self.prev_coords[-1][2] == 1 else "right", _pause=False)
+        if coord is None and self.prev_cords[-1][2] <= 2:
+            if self.prev_coords[-1][2]<=2:
+                pyautogui.click(x=self.prev_coords[-1][0], y=self.prev_coords[-1][1], button="left" if self.prev_coords[-1][2] == 1 else "right", _pause=False)
+            else:
+                img = pyautogui.screenshot()
+                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+                filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                screenshot_path = os.path.join(desktop_path, filename)
+                img.save(screenshot_path)
             return UntouchedState()
-    
+
         if len(self.prev_coords) < self.window_size:
             self.prev_coords.append(coord)
             return None
