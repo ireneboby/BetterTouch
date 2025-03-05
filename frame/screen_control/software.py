@@ -5,6 +5,7 @@ import serial
 from typing import Optional
 from datetime import datetime
 import os
+import platform
 
 DEBUG_MODE = True
 
@@ -19,6 +20,11 @@ COM_PORT = 'COM7'                       # for Windows
 # COM_PORT = '/dev/cu.usbmodem14201'    # for MacOS
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
+
+if platform.system() == "Windows":
+    COM_PORT = 'COM7'  # for Windows
+elif platform.system() == "Darwin":
+    COM_PORT = '/dev/cu.usbmodem14201'  # for macOS
 
 # Frame Constants
 N = 48
@@ -81,11 +87,6 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
     for i in range(1, len(x_indices)):
         if x_indices[i] != (x_indices[i-1] + 1):
             num_touches += 1
-
-    # if x_count >= 6:
-    #     num_touches = 3
-    # elif x_count >= 3:
-    #     num_touches = 2
 
     return x_coord, y_coord, num_touches
 
@@ -185,9 +186,12 @@ class TwoFingerTouchState(ScreenState):
         if abs(y - prev_y) > 3:
             scroll_amount = (y - prev_y) // 8
             pyautogui.scroll(scroll_amount, _pause=False)
-        elif abs(x - prev_x) > 20:
+        elif abs(x - prev_x) > 10:
             zoom_factor = 1.1 if x > prev_x else 0.9
-            pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
+            if platform.system() == "Windows":
+                pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
+            elif platform.system() == "Darwin":
+                pyautogui.hotkey("command", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("command", "-", _pause=False)
 
         self.prev_coord = coord
         return None
