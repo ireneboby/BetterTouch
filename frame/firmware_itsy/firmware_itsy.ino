@@ -40,8 +40,6 @@ const int CHAR_LEN = TOTAL_LEN/BITS_PER_BYTE;  // total number of bytes of data
 /* Frame Controls */
 /****************************************************************************/
 const int DELAY_TIME_MICRO = 160;
-const int THRESHOLD_X = 50; // usually ~ 100
-const int THRESHOLD_Y = 10; // usually ~ 30
 
 // Output Pins
 const int OUTPUT_X_PIN = A0;
@@ -53,13 +51,21 @@ const int SELECT_PINS[NUM_SELECT_PINS] = {5, 7, 9, 11, 12, 13}; // S2-2~5, S0-1~
 
 // Enable Signals (Active Low)
 const int ENABLE_X_PIN = 23;             
-const int ENABLE_Y_PIN = 24;  
+const int ENABLE_Y_PIN = 24;
+/****************************************************************************/
 
+// Threshold Variables
+bool calibrated = false;                // whether we have calibrated or not
+const int THRESHOLD_DIVISOR_X = 2;      // avg x voltage reading / THREHOLD_DIVISOR_X = threshold_x
+const int THRESHOLD_DIVISOR_Y = 3;      // avg y voltage reading / THRESHOLD_VISIOR_Y = threshold_y
+int threshold_x = 0;                    // voltage threshold for x
+int threshold_y = 0;                    // voltage threshold for y
+
+// Other Variables
 bool is_x_axis_enabled;                 // true if x axis is enabled, false if y axis is enabled
 bool bit_array[72] = {0};               // bit array that denotes touch coordinates [X1][X2]...[X48][Y1]...[Y24]
 char char_array[9] = {0};               // char array that we send to software (ordered left-right, top-bottom)
-bool touch_bit = 0;                     // digital output after read from currently active x/y photodiode
-/****************************************************************************/
+int voltage_reading = 0;                // analog voltage output after read from currently active x/y photodiode
 
 void setup()
 {
@@ -92,14 +98,18 @@ void loop()
     unsigned long refresh_time = 0;
   #endif
 
-  cycleX();   
-  cycleY();
+  if (!connected || !calibrated) {
+    cycle(true);
+    calibrated = true;
+  } else {
+    cycle(false);
+  }
   
   #ifdef DEBUG
     printBitArray(); 
   #endif
 
-  // 
+  // convert to char_array to send over 
   for (int i = 0; i < CHAR_LEN; i++) {
       char_array[i] = 0;
       for (int j = 0; j < BITS_PER_BYTE; j++) {
@@ -134,17 +144,25 @@ void loop()
 ************************************************************/
 bool analog_to_digital(uint16_t analog_input) {
   if (is_x_axis_enabled) {
-    return analog_input < THRESHOLD_X;
+    return analog_input < threshold_x;
   } else {
-    return analog_input < THRESHOLD_Y;
+    return analog_input < threshold_y;
   }
 }
 
 /************************************************************
   Cycle through the x axis
 ************************************************************/
-void cycleX()
-{
+
+void cycle(bool calibrate) {
+
+  if (calibrate) {
+    threshold_x = 0;
+    threshold_y = 0;
+  }
+
+  // cycle x
+
   digitalWrite(ENABLE_X_PIN, LOW);
   digitalWrite(ENABLE_Y_PIN, HIGH);
   is_x_axis_enabled = true;
@@ -152,22 +170,28 @@ void cycleX()
   for (int i = 0; i < X_LEN; i++) {
     setSelectSignal(i); 
 
-    touch_bit = analog_to_digital(analogRead(OUTPUT_X_PIN));
+    voltage_reading = analogRead(OUTPUT_X_PIN);
+    if (calibrate) {
+      threshold_x += voltage_reading;
+    }
     #ifdef DEBUG
-      Serial << "x = " << i + 1 << ": " << analogRead(OUTPUT_X_PIN) << endl;
+      Serial << "x = " << i + 1 << ": " << voltage_reading << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array[i] = touch_bit; 
+    bit_array[i] = analog_to_digital(voltage_reading); 
 
     delayMicroseconds(DELAY_TIME_MICRO);
   }
-}
 
-/************************************************************
-  Cycle through the y axis
-************************************************************/
-void cycleY()
-{
+  if (calibrate) {
+    threshold_x = threshold_x / X_LEN;
+    Serial << "Avg Voltage Reading (X): " << threshold_x << endl;
+    threshold_x = threshold_x / THRESHOLD_DIVISOR_X;
+    Serial << "Threshold (X): " << threshold_x << endl;
+  }
+
+  // cycle y 
+
   digitalWrite(ENABLE_X_PIN, HIGH);
   digitalWrite(ENABLE_Y_PIN, LOW);
   is_x_axis_enabled = false;
@@ -175,14 +199,24 @@ void cycleY()
   for (int i = 0; i < Y_LEN; i++) {
     setSelectSignal(i); 
 
-    touch_bit = analog_to_digital(analogRead(OUTPUT_Y_PIN));
+    voltage_reading = analogRead(OUTPUT_Y_PIN);
+    if (calibrate) {
+      threshold_y += voltage_reading;
+    }
     #ifdef DEBUG
-      Serial << "y = " << i + 1 << ": " << analogRead(OUTPUT_Y_PIN) << endl;
+      Serial << "y = " << i + 1 << ": " << voltage_reading << endl;
       delay(DELAY_DEBUG);
     #endif
-    bit_array[i + X_LEN] = touch_bit;
+    bit_array[i + X_LEN] = analog_to_digital(voltage_reading);
 
     delayMicroseconds(DELAY_TIME_MICRO);
+  }
+
+  if (calibrate) {
+    threshold_y = threshold_y / Y_LEN;
+    Serial << "Avg Voltage Reading (Y): " << threshold_y << endl;
+    threshold_y = threshold_y / THRESHOLD_DIVISOR_Y;
+    Serial << "Threshold (Y): " << threshold_y << endl;
   }
 }
 
@@ -256,7 +290,6 @@ void startAdv(void)
   Bluefruit.Advertising.setFastTimeout(30);      // number of seconds in fast mode
   Bluefruit.Advertising.start(0);                // 0 = Don't stop advertising after n seconds  
 }
-
 
 // callback invoked when central connects
 void connect_callback(uint16_t conn_handle)
