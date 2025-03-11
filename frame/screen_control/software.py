@@ -82,6 +82,7 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
     x_coord = max(round((x_index / x_count / N) * (X_MAX - X_MIN) + X_MIN), 0)
 
     y_index = sum(i for i, bit in enumerate(y_bit_array) if bit)
+    y_indices = [i for i, bit in enumerate(y_bit_array) if bit]
     y_count = sum(y_bit_array)
     if y_count == 0:
         return None
@@ -91,13 +92,13 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
     num_touches = 1
     consecutives = 1
     for i in range(1, len(x_indices)):
-        if x_indices[i] != (x_indices[i-1] + 1) or consecutives > 3:
+        if x_indices[i] != (x_indices[i-1] + 1) or consecutives >= 3:
             num_touches += 1
             consecutives = 1
         else:
             consecutives += 1
 
-    return x_coord, y_coord, num_touches, x_indices[0] - x_indices[-1]
+    return x_coord, y_coord, num_touches, abs(x_indices[0] - x_indices[-1]), abs(y_indices[0] - y_indices[-1])
 
 class ScreenState:
     def on_event(self, event: bytearray):
@@ -187,7 +188,7 @@ class TwoFingerTouchState(ScreenState):
         if bit_arrays is None:
             return None
         
-        prev_x, prev_y, _, prev_diff_x = self.prev_coord
+        prev_x, prev_y, _, prev_diff_x, _ = self.prev_coord
         zoomed_or_scroll = self.zoomed or self.scrolled
 
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
@@ -196,17 +197,16 @@ class TwoFingerTouchState(ScreenState):
                 pyautogui.click(x=prev_x, y=prev_y, button="left", _pause=False)
             return UntouchedState()
 
-        x, y, num_touches, diff_x = coord
-        if num_touches == 1:
-            return TapState(coord)
-
-        # Detect gesture type (scrolling or zooming)
-        if abs(y - prev_y) > 15 and (not zoomed_or_scroll or self.scrolled):
+        x, y, num_touches, diff_x, diff_y = coord
+        #if num_touches == 1:
+         #   return TapState(coord)
+        # Detect gesture type (scrolling or zooming)=
+        if diff_y < 2 and num_touches == 2 and not (zoomed_or_scroll or self.scrolled):
             scroll_amount = (y - prev_y)*10
             pyautogui.scroll(scroll_amount, _pause=False)
             self.zoomed = True
-        elif abs(x - prev_x) > 35 and (not zoomed_or_scroll or self.zoomed):
-            zoom_factor = 1.1 if prev_diff_x > diff_x else 0.9
+        elif prev_diff_x != diff_x and not (zoomed_or_scroll or self.zoomed):
+            zoom_factor = 1.1 if prev_diff_x < diff_x else 0.9
             self.scrolled = True
             if SYSTEM == "Win":
                 pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
