@@ -55,7 +55,6 @@ const int ENABLE_Y_PIN = 24;
 /****************************************************************************/
 
 // Threshold Variables
-bool calibrated = false;                // whether we have calibrated or not
 const int THRESHOLD_DIVISOR_X = 2;      // avg x voltage reading / THREHOLD_DIVISOR_X = threshold_x
 const int THRESHOLD_DIVISOR_Y = 3;      // avg y voltage reading / THRESHOLD_VISIOR_Y = threshold_y
 int threshold_x = 0;                    // voltage threshold for x
@@ -69,6 +68,7 @@ int voltage_reading = 0;                // analog voltage output after read from
 
 void setup()
 {
+
   Serial.begin(115200);
   
   pinMode(OUTPUT_X_PIN, INPUT);
@@ -84,9 +84,13 @@ void setup()
   digitalWrite(ENABLE_X_PIN, HIGH);
   digitalWrite(ENABLE_Y_PIN, HIGH);
 
+  while (!Serial);
+  cycle(true);
+
   // Set up bluetooth and advertise presence of frame
   bleSetup();
   startAdv();
+
 }
 
 void loop()
@@ -98,12 +102,7 @@ void loop()
     unsigned long refresh_time = 0;
   #endif
 
-  if (!connected || !calibrated) {
-    cycle(true);
-    calibrated = true;
-  } else {
-    cycle(false);
-  }
+  cycle(false);
   
   #ifdef DEBUG
     printBitArray(); 
