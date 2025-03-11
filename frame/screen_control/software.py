@@ -89,9 +89,13 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
 
     # Determine number of touches
     num_touches = 1
+    consecutives = 1
     for i in range(1, len(x_indices)):
-        if x_indices[i] != (x_indices[i-1] + 1):
+        if x_indices[i] != (x_indices[i-1] + 1) or consecutives > 3:
             num_touches += 1
+            consecutives = 1
+        else:
+            consecutives += 1
 
     return x_coord, y_coord, num_touches, x_indices[0] - x_indices[-1]
 
@@ -120,7 +124,7 @@ class TapState(ScreenState):
     """Intermediate state to prevent misclassification of two-finger touches."""
 
     prev_coords: list
-    window_size = 5
+    window_size = 8
 
     def __init__(self, coord):
         self.prev_coords = [coord]
@@ -189,7 +193,7 @@ class TwoFingerTouchState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             if not zoomed_or_scroll:
-                pyautogui.click(x=prev_x, y=prev_y[1], button="left", _pause=False)
+                pyautogui.click(x=prev_x, y=prev_y, button="left", _pause=False)
             return UntouchedState()
 
         x, y, num_touches, diff_x = coord
@@ -206,7 +210,7 @@ class TwoFingerTouchState(ScreenState):
             self.scrolled = True
             if SYSTEM == "Win":
                 pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
-            elif SYSTEM == "Darwin":
+            elif SYSTEM == "Mac":
                 pyautogui.hotkey("command", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("command", "-", _pause=False)  
 
         self.prev_coord = coord
