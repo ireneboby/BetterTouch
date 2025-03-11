@@ -38,6 +38,16 @@ X_MIN = 0
 Y_MIN = -10
 X_MAX, Y_MAX = pyautogui.size()
 
+def show_popup(title, message):
+
+    if SYSTEM == "Windows":
+        from ctypes import windll
+        windll.user32.MessageBoxW(0, message, title, 1)
+    elif SYSTEM == "Mac": 
+        os.system(f'osascript -e \'display notification "{message}" with title "{title}"\'')
+    else:
+        print("Unsupported OS")
+
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
     """Converts recevied data into bit arrays. Returns None if data is invalid.
 
@@ -145,6 +155,8 @@ class TapState(ScreenState):
                 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
                 filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
                 img.save(os.path.join(desktop_path, filename))
+                show_popup("Screenshot!", "Check your Desktop.")
+
             return UntouchedState()
 
         if len(self.prev_coords) < self.window_size:
