@@ -88,9 +88,13 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
 
     # Determine number of touches
     num_touches = 1
+    consecutives = 1
     for i in range(1, len(x_indices)):
-        if x_indices[i] != (x_indices[i-1] + 1):
+        if x_indices[i] != (x_indices[i-1] + 1) or consecutives > 3:
             num_touches += 1
+            consecutives = 1
+        else:
+            consecutives += 1
 
     return x_coord, y_coord, num_touches, x_indices[0] - x_indices[-1]
 
@@ -119,7 +123,7 @@ class TapState(ScreenState):
     """Intermediate state to prevent misclassification of two-finger touches."""
 
     prev_coords: list
-    window_size = 5
+    window_size = 8
 
     def __init__(self, coord):
         self.prev_coords = [coord]
