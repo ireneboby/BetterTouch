@@ -8,7 +8,7 @@ import os
 import platform
 import sys
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 # PyAutoGUI settings
 pyautogui.PAUSE = 2.5
@@ -35,7 +35,7 @@ else:
 N = 48
 M = 24
 X_MIN = 0
-Y_MIN = 0
+Y_MIN = -10
 X_MAX, Y_MAX = pyautogui.size()
 
 def data_parsing(data: bytearray) -> Optional[tuple[list[bool], list[bool]]]:
@@ -79,13 +79,13 @@ def coordinate_determination(x_bit_array: list[bool], y_bit_array: list[bool]) -
     x_count = sum(x_bit_array)
     if x_count == 0:
         return None
-    x_coord = round((x_index / x_count / N) * (X_MAX - X_MIN) + X_MIN)
+    x_coord = max(round((x_index / x_count / N) * (X_MAX - X_MIN) + X_MIN), 0)
 
     y_index = sum(i for i, bit in enumerate(y_bit_array) if bit)
     y_count = sum(y_bit_array)
     if y_count == 0:
         return None
-    y_coord = round((y_index / y_count / M) * (Y_MAX - Y_MIN) + Y_MIN)
+    y_coord = max(round((y_index / y_count / M) * (Y_MAX - Y_MIN) + Y_MIN), 0)
 
     # Determine number of touches
     num_touches = 1
