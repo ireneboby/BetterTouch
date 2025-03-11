@@ -188,7 +188,7 @@ class TwoFingerTouchState(ScreenState):
         coord = coordinate_determination(bit_arrays[0], bit_arrays[1])
         if coord is None:
             if not zoomed_or_scroll:
-                pyautogui.click(x=prev_x, y=prev_y[1], button="left", _pause=False)
+                pyautogui.click(x=prev_x, y=prev_y, button="left", _pause=False)
             return UntouchedState()
 
         x, y, num_touches, diff_x = coord
@@ -205,7 +205,7 @@ class TwoFingerTouchState(ScreenState):
             self.scrolled = True
             if SYSTEM == "Win":
                 pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
-            elif SYSTEM == "Darwin":
+            elif SYSTEM == "Mac":
                 pyautogui.hotkey("command", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("command", "-", _pause=False)  
 
         self.prev_coord = coord
