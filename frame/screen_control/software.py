@@ -16,15 +16,19 @@ pyautogui.FAILSAFE = True
 # Bluetooth Connection Settings
 CUSTOM_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
 CUSTOM_CHAR_UUID = "00005678-0000-1000-8000-00805f9b34fb"
-COM_PORT = 'COM7'                       # for Windows
-# COM_PORT = '/dev/cu.usbmodem14201'    # for MacOS
+SYSTEM = ""
+COM_PORT = ''                       # for Windows
 BAUD_RATE = 9600
 TIMEOUT = 0.1 # 1/timeout is the frequency at which the port is read
 
 if platform.system() == "Windows":
-    COM_PORT = 'COM7'  # for Windows
+    SYSTEM = "Win"
+    COM_PORT = 'COM7'
 elif platform.system() == "Darwin":
-    COM_PORT = '/dev/cu.usbmodem14201'  # for macOS
+    SYSTEM = "Mac"
+    COM_PORT = '/dev/cu.usbmodem14201'
+else:
+    raise Exception("Platform not supported")
 
 # Frame Constants
 N = 48
@@ -199,9 +203,9 @@ class TwoFingerTouchState(ScreenState):
         elif abs(x - prev_x) > 35 and (not zoomed_or_scroll or self.zoomed):
             zoom_factor = 1.1 if prev_diff_x > diff_x else 0.9
             self.scrolled = True
-            if platform.system() == "Windows":
+            if SYSTEM == "Win":
                 pyautogui.hotkey("ctrl", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("ctrl", "-", _pause=False)
-            elif platform.system() == "Darwin":
+            elif SYSTEM == "Darwin":
                 pyautogui.hotkey("command", "+", _pause=False) if zoom_factor > 1 else pyautogui.hotkey("command", "-", _pause=False)  
 
         self.prev_coord = coord
