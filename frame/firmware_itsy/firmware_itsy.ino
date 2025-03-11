@@ -56,7 +56,7 @@ const int ENABLE_Y_PIN = 24;
 
 // Threshold Variables
 const int THRESHOLD_DIVISOR_X = 2;      // avg x voltage reading / THREHOLD_DIVISOR_X = threshold_x
-const int THRESHOLD_DIVISOR_Y = 3;      // avg y voltage reading / THRESHOLD_VISIOR_Y = threshold_y
+const int THRESHOLD_DIVISOR_Y = 2;      // avg y voltage reading / THRESHOLD_VISIOR_Y = threshold_y
 int threshold_x = 0;                    // voltage threshold for x
 int threshold_y = 0;                    // voltage threshold for y
 
@@ -84,7 +84,9 @@ void setup()
   digitalWrite(ENABLE_X_PIN, HIGH);
   digitalWrite(ENABLE_Y_PIN, HIGH);
 
-  while (!Serial);
+  #ifdef DEBUG
+    while (!Serial);
+  #endif
   cycle(true);
 
   // Set up bluetooth and advertise presence of frame
