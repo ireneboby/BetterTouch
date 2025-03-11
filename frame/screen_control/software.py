@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime
 import os
 import platform
+import sys
 
 DEBUG_MODE = True
 
@@ -225,40 +226,67 @@ async def _notification_handler(sender, data):
         data_bits = ''.join(f'{byte:08b}' for byte in data)
         print(curr_state, data_bits)
 
+target_frame = None
+RECONNECT_TIMEOUT = 30  # in seconds
+RECONNECT_DELAY = 4  # in seconds
+
+class ReconnectTimeoutError(Exception):
+    """Custom exception raised when reconnection times out."""
+    pass
+
+async def connect_and_notify():
+    """Attempt connection within a timeout period."""
+    global target_frame
+    start_time = asyncio.get_event_loop().time()
+    
+    while asyncio.get_event_loop().time() - start_time <= RECONNECT_TIMEOUT:
+        try:
+            print(f"Attempting to connect to {target_frame.address}...")
+            async with BleakClient(target_frame, disconnected_callback=disconnect_callback) as client:
+                if client.is_connected:
+                    print(f"Connected to {target_frame.address} successfully. Enabling notifications...")
+                    await client.start_notify(CUSTOM_CHAR_UUID, _notification_handler)
+                    print("Notifications enabled. Listening for data...")
+                    while client.is_connected:
+                        await asyncio.sleep(0.015)
+                else:
+                    print("Failed to establish a connection. Retrying...")
+        except Exception as e:
+            print(f"Reconnection attempt failed. {e}")
+        
+        await asyncio.sleep(RECONNECT_DELAY)
+    
+    # Reconnect timeout
+    raise ReconnectTimeoutError
+
 async def main_ble():
-    """Handles data communication over bluetooth."""
-    devices = await BleakScanner.discover()
-
-    # Find the device advertising the custom service
-    target_device = None
-    for device in devices:
-        print(f"Device found: {device.name}, Address: {device.address}")
-        if CUSTOM_SERVICE_UUID in [str(uuid) for uuid in device.metadata.get("uuids", [])]:
-            target_device = device
-            break
-
-    if not target_device:
-        print("Custom service not found in any device.")
+    """Scans for and connects to the target frame."""
+    global target_frame
+    
+    if not target_frame:
+        devices = await BleakScanner.discover()
+        for device in devices:
+            print(f"Discovered: {device.name}, Address: {device.address}")
+            if CUSTOM_SERVICE_UUID in [str(uuid) for uuid in device.metadata.get("uuids", [])]:
+                target_frame = device
+                break
+        if not target_frame:
+            print("No compatible device found.")
+            return
+    
+    try:
+        await connect_and_notify()
+    except ReconnectTimeoutError:
+        print("Reconnection timeout reached. Exiting.")
         return
 
-    print(f"Connecting to {target_device.address}...")
-
-    async with BleakClient(target_device) as client:
-        if not client.is_connected:
-            print("Failed to connect.")
-            return
-
-        print("Connected. Enabling notifications...")
-
-        await client.start_notify(CUSTOM_CHAR_UUID, _notification_handler)
-
-        print("Notifications enabled. Waiting for data...")
-
-        try:
-            while True:
-                await asyncio.sleep(0.015)
-        except KeyboardInterrupt:
-            print("Program interrupted")
+def disconnect_callback(client):
+    """Handles disconnection events and triggers monitored reconnection."""
+    global target_frame
+    print(f"Disconnected from {client.address}. Attempting to reconnect...")
+    if target_frame:
+        asyncio.create_task(connect_and_notify())
+        
         
 def main_serial():
     """Handles data communication serially."""
@@ -277,4 +305,8 @@ def main_serial():
 
 
 if __name__ == "__main__":
-    asyncio.run(main_ble())
+    try:
+        asyncio.run(main_ble())
+    except KeyboardInterrupt:
+        print("Program interrupted. Exiting.")
+        sys.exit(0)
