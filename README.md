@@ -1,7 +1,9 @@
 # BetterTouch
 A frame to seamlessly transform any laptop into a touchscreen.
+
 [Video Demo](https://youtu.be/HHpmAeaOsxw)
-Built by: Irene Boby, Wani Gupta, Subin Lee, Ella Smith and Kristin Wu
+
+**Built by:** Irene Boby, Wani Gupta, Subin Lee, Ella Smith and Kristin Wu
 
 ## How It's Made 
 1. Pairs of infrared LEDs and photodiodes detect interruptions in light beams with the presence of a finger. 
