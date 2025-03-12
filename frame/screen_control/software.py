@@ -244,7 +244,7 @@ async def _notification_handler(sender, data):
 
 target_frame = None
 RECONNECT_TIMEOUT = 30  # in seconds
-RECONNECT_DELAY = 4  # in seconds
+RECONNECT_DELAY = 1  # in seconds
 
 class ReconnectTimeoutError(Exception):
     """Custom exception raised when reconnection times out."""
@@ -254,25 +254,41 @@ async def connect_and_notify():
     """Attempt connection within a timeout period."""
     global target_frame
     start_time = asyncio.get_event_loop().time()
-    
-    while asyncio.get_event_loop().time() - start_time <= RECONNECT_TIMEOUT:
+    try_reconnect = False
+
+    while True:
+        elapsed_time = asyncio.get_event_loop().time() - start_time
+        if try_reconnect and elapsed_time > RECONNECT_TIMEOUT:
+            print("Reconnection timeout reached. Stopping attempts.")
+            break
+
         try:
             print(f"Attempting to connect to {target_frame.address}...")
+
             async with BleakClient(target_frame, disconnected_callback=disconnect_callback) as client:
                 if client.is_connected:
+                    try_reconnect = False
                     print(f"Connected to {target_frame.address} successfully. Enabling notifications...")
                     await client.start_notify(CUSTOM_CHAR_UUID, _notification_handler)
                     print("Notifications enabled. Listening for data...")
+
+                    # Keep the connection alive
                     while client.is_connected:
                         await asyncio.sleep(0.010)
-                else:
-                    print("Failed to establish a connection. Retrying...")
+
+                    print("Connection lost. Restarting reconnection attempts...")
+                    try_reconnect = True
+                    start_time = asyncio.get_event_loop().time()  # Reset timeout on disconnect
+
         except Exception as e:
-            print(f"Reconnection attempt failed. {e}")
+            print(f"Connection attempt failed. {e} Retrying...")
+            if not try_reconnect:
+                try_reconnect = True
+                start_time = asyncio.get_event_loop().time()  # Reset timeout on disconnect
+
         
         await asyncio.sleep(RECONNECT_DELAY)
     
-    # Reconnect timeout
     raise ReconnectTimeoutError
 
 async def main_ble():
