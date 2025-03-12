@@ -1,4 +1,4 @@
-# BetterTouch
+# ScreenTickle
 A frame to seamlessly transform any laptop into a touchscreen.
 
 [Video Demo](https://youtu.be/HHpmAeaOsxw)
