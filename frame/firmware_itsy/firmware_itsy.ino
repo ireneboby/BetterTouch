@@ -39,7 +39,7 @@ const int CHAR_LEN = TOTAL_LEN/BITS_PER_BYTE;  // total number of bytes of data
 
 /* Frame Controls */
 /****************************************************************************/
-const int DELAY_TIME_MICRO = 160;
+const int DELAY_TIME_MICRO = 50;
 
 // Output Pins
 const int OUTPUT_X_PIN = A0;

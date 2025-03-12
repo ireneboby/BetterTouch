@@ -40,7 +40,7 @@ X_MAX, Y_MAX = pyautogui.size()
 
 def show_popup(title, message):
 
-    if SYSTEM == "Windows":
+    if SYSTEM == "Win":
         from ctypes import windll
         windll.user32.MessageBoxW(0, message, title, 1)
     elif SYSTEM == "Mac": 
@@ -135,8 +135,8 @@ class TapState(ScreenState):
     """Intermediate state to prevent misclassification of two-finger touches."""
 
     prev_coords: list
-    window_size = 8
-
+    window_size = 5
+    
     def __init__(self, coord):
         self.prev_coords = [coord]
 
@@ -155,7 +155,7 @@ class TapState(ScreenState):
                 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
                 filename = f"screenshot_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
                 img.save(os.path.join(desktop_path, filename))
-                show_popup("Screenshot!", "Check your Desktop.")
+                #show_popup("Screenshot!", "Check your Desktop.")
 
             return UntouchedState()
 
@@ -213,7 +213,7 @@ class TwoFingerTouchState(ScreenState):
         #if num_touches == 1:
          #   return TapState(coord)
         # Detect gesture type (scrolling or zooming)=
-        if diff_y < 2 and num_touches == 2 and not (zoomed_or_scroll or self.scrolled):
+        if diff_y < 3 and num_touches == 2 and not (zoomed_or_scroll or self.scrolled):
             scroll_amount = (y - prev_y)*10
             pyautogui.scroll(scroll_amount, _pause=False)
             self.zoomed = True
@@ -264,7 +264,7 @@ async def connect_and_notify():
                     await client.start_notify(CUSTOM_CHAR_UUID, _notification_handler)
                     print("Notifications enabled. Listening for data...")
                     while client.is_connected:
-                        await asyncio.sleep(0.015)
+                        await asyncio.sleep(0.010)
                 else:
                     print("Failed to establish a connection. Retrying...")
         except Exception as e:
