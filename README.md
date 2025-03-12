@@ -1,4 +1,12 @@
 # BetterTouch
+A frame to seamlessly transform any laptop into a touchscreen.
+[Video Demo](https://youtu.be/HHpmAeaOsxw)
+Built by: Irene Boby, Wani Gupta, Subin Lee, Ella Smith and Kristin Wu
+
+## How It's Made 
+1. Pairs of infrared LEDs and photodiodes detect interruptions in light beams with the presence of a finger. 
+2. A bit array representing where touch was detected on the x and y axes is sent over BlueTooth to the laptop.
+3. A Python script processes the type of touch and calls the [PyAutoGUI library](https://github.com/asweigart/pyautogui) for screen control compatible with Windows and macOS. 
 
 ## Installation Instructions
 
@@ -34,6 +42,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-MAC may need to make changes in the accessibility:
+MAC may need to make changes in the privacy and security setttings:
+Settings > Privacy & Security > Accessibility > Switch on for the application running the Python script
 
 
